@@ -56,7 +56,7 @@ struct sockaddr_in6{
  * @param addrlen 目标地址长度
  * @return int 发送成功返回发送的字节数，失败返回SOCKET_ERROR
  */
-int udp_send(int32 sockfd, const void *buf, int len, 
+int udp_send(int sockfd, const void *buf, int len, 
              const struct sockaddr *dest_addr, int addrlen);
 
 /**
