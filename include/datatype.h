@@ -14,22 +14,4 @@ typedef long long int64;
 typedef unsigned char byte;
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #endif
