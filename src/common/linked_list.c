@@ -122,7 +122,21 @@ struct linked_list_node *linked_list_get_tail(struct list_ops_unit ops_unit) {
     return ops_unit.tail->prev;
 }
 
-// 8.释放双向链表的节点
+// 8.交换两个节点的位置
+void linked_list_swap_node(struct linked_list_node *node1, struct linked_list_node *node2) {
+    if (node1 == NULL || node2 == NULL) {
+        return;
+    }
+
+    int8 *tmp_data = node1->data;
+    int32 tmp_data_len = node1->data_len;
+    node1->data = node2->data;
+    node1->data_len = node2->data_len;
+    node2->data = tmp_data;
+    node2->data_len = tmp_data_len;
+}
+
+// 9.释放双向链表的节点
 void linked_list_free_node(struct linked_list_node *node) {
     if (node == NULL) {
         return;
@@ -137,7 +151,7 @@ void linked_list_free_node(struct linked_list_node *node) {
     node = NULL;
 }
 
-// 9.释放双向链表的内存
+// 10.释放双向链表的内存
 void linked_list_free(struct list_ops_unit ops_unit) {
     if (ops_unit.head == NULL || ops_unit.tail == NULL) {
         return;

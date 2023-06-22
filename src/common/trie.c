@@ -92,6 +92,8 @@ int32 trie_insert(struct trie_node *root, int8 *key_domin_name, uint16 ip_type, 
 
     // 添加放入链表的节点指针
     struct put_list_data *put_list_data = (struct put_list_data *)malloc(sizeof(struct put_list_data));
+    put_list_data->query_cnt = 0; // 查询次数初始化为0
+    put_list_data->domin_name = key_domin_name; 
     linked_list_insert_tail(ops_unit, (int8*)put_list_data, sizeof(struct put_list_data));
     cur->list_node = linked_list_get_tail(ops_unit);
 
@@ -136,5 +138,26 @@ struct ip_info *trie_search(struct trie_node *root, int8 *key_domin_name) {
         }
         cur = cur->next[index];
     }
-    return cur->ip_info;
+
+    // 将cur指向的节点的链表节点的查询次数加1
+    if ((int32)sizeof(struct put_list_data) == cur->list_node->data_len) {
+        struct put_list_data *put_list_data = (struct put_list_data *)cur->list_node->data;
+        put_list_data->query_cnt++;
+        cur->list_node->data = (int8*)put_list_data;
+        // 然后将cur->list_node向前移动
+        while (1) {
+            if (cur->list_node->prev == ops_unit.head) {
+                break;
+            }
+            struct put_list_data *pre_list_data = (struct pre_list_data *)cur->list_node->prev->data;
+            if (put_list_data->query_cnt <= pre_list_data->query_cnt) {
+                break;
+            }
+            // 交换两个节点的数据
+            linked_list_swap_node(cur->list_node, cur->list_node->prev);
+            cur->list_node = cur->list_node->prev;
+        }
+        return cur->ip_info;
+    }
+    return NULL;
 }

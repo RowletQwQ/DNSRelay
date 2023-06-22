@@ -44,10 +44,15 @@ struct linked_list_node *linked_list_get_head(struct list_ops_unit ops_unit);
 // 7.返回最后一个节点, NULL表示没有节点
 struct linked_list_node *linked_list_get_tail(struct list_ops_unit ops_unit);
 
-// 8.释放一个节点的内存
+// 8.交换两个节点(保证两个节点相邻)
+void linked_list_swap_node(struct linked_list_node *node1, struct linked_list_node *node2);
+
+// 9.释放一个节点的内存
 void linked_list_free_node(struct linked_list_node *node);
 
-// 9.释放双向链表的内存
+// 10.释放双向链表的内存
 void linked_list_free(struct list_ops_unit ops_unit);
+
+
 
 #endif 
