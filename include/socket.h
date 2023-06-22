@@ -19,6 +19,7 @@
 struct in_addr{
     uint32 s_addr; //IP地址,网络字节序
 };
+
 //IPv6地址结构
 struct in6_addr{
     uint8 s6_addr[16]; //IP地址,网络字节序
@@ -28,14 +29,14 @@ struct sockaddr{
     uint16 sa_family; //地址族
     char sa_data[14]; //14字节协议地址，包含该套接字的IP地址和端口号
 };
-//IPv4地址结构
+//IPv4 sock地址结构
 struct sockaddr_in{
     uint16 sin_family; //地址族类型,必须为AF_INET,表示IPv4地址
     uint16 sin_port; //端口号,必须为网络字节序
     struct in_addr sin_addr; //IP地址
     byte sin_zero[8]; //填充0以保持与sockaddr结构的长度相同
 };
-//IPv6地址结构
+//IPv6 sock地址结构
 struct sockaddr_in6{
     uint16 sin6_family; //地址族类型,必须为AF_INET6,表示IPv6地址
     uint16 sin6_port; //端口号,必须为网络字节序
@@ -43,9 +44,30 @@ struct sockaddr_in6{
     struct in6_addr sin6_addr; //IP地址
     uint32 sin6_scope_id; //范围ID
 };
+
+// socket初始化
+
+/**
+ * @brief 初始化socket，包含sock标识符，地址信息，端口号等
+ */
+
+void socket_init();
+
+/**
+ * @brief 关闭socket
+ * 
+ * @param sock 套接字描述符
+ */
+
+void socket_close(int sock);
+
+
+/**
+ * @brief 监听请求端口 将dns请求加入到任务池中
+ */
+int socket_req_listen();
+
 //UDP
-
-
 /**
  * @brief 创建UDP套接字
  * 
@@ -60,7 +82,7 @@ int udp_send(int sockfd, const void *buf, int len,
              const struct sockaddr *dest_addr, int addrlen);
 
 /**
- * @brief 接收UDP套接字
+ * @brief 接收UDP套接字，接收数据存放在buf中，源地址存放在src_addr中
  * 
  * @param sockfd 套接字描述符
  * @param buf 接收缓冲区
@@ -71,6 +93,7 @@ int udp_send(int sockfd, const void *buf, int len,
  */
 int udp_recv(int sockfd, void *buf, int len, 
              struct sockaddr *src_addr, int *addrlen);
+
 
 //TCP
 //这个程序是Server端,故需要提供四个函数
@@ -114,22 +137,5 @@ int tcp_server_listen(int sockfd, int backlog);
  * @return int 成功返回新的套接字描述符，失败返回SOCKET_ERROR
  */
 int tcp_server_accept(int sockfd, struct sockaddr *addr, int *addrlen);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 #endif
