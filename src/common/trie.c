@@ -121,3 +121,20 @@ int32 trie_delete(struct trie_node *root, int8 *key_domin_name) {
     }
 }
 
+// 4.查找一个域名对应的ip地址, 返回值: ip地址, 为NULL表示查找失败
+struct ip_info *trie_search(struct trie_node *root, int8 *key_domin_name) {
+    struct trie_node *cur = root;
+    // 遍历域名
+    while (*key_domin_name != '\0') {
+        int8 c = *key_domin_name;
+        int32 index = trans_char_to_index(c);
+        if (index == -1) {
+            return NULL;
+        }
+        if (cur->next[index] == NULL) {
+            return NULL;
+        }
+        cur = cur->next[index];
+    }
+    return cur->ip_info;
+}
