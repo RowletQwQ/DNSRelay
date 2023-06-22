@@ -73,5 +73,105 @@ int thread_pool_submit(thread_pool_t *pool, void *arg);
  */
 int thread_pool_shutdown(thread_pool_t *pool);
 
+//互斥锁
+/**
+ * @brief 初始化互斥锁
+ * 
+ * @param mutex 互斥锁指针
+ * @return int 0表示成功,其他表示失败
+ */
+int mutex_init(mutex_t *mutex);
+
+/**
+ * @brief 销毁互斥锁
+ * 
+ * @param mutex 互斥锁指针
+ * @return int 0表示成功,其他表示失败
+ */
+int mutex_destroy(mutex_t *mutex);
+
+/**
+ * @brief 加锁
+ * 
+ * @param mutex 互斥锁指针
+ * @return int 0表示成功,其他表示失败
+ */
+int mutex_lock(mutex_t *mutex);
+
+/**
+ * @brief 解锁
+ * 
+ * @param mutex 互斥锁指针
+ * @return int 0表示成功,其他表示失败
+ */
+int mutex_unlock(mutex_t *mutex);
+
+//条件变量
+/**
+ * @brief 初始化条件变量
+ * 
+ * @param cond 条件变量指针
+ * @return int 0表示成功,其他表示失败
+ */
+int cond_init(cond_t *cond);
+
+/**
+ * @brief 销毁条件变量
+ * 
+ * @param cond 条件变量指针
+ * @return int 0表示成功,其他表示失败
+ */
+int cond_destroy(cond_t *cond);
+
+/**
+ * @brief 等待条件变量
+ * 
+ * @param cond 条件变量指针
+ * @param mutex 互斥锁指针
+ * @return int 0表示成功,其他表示失败
+ */
+int cond_wait(cond_t *cond, mutex_t *mutex);
+
+/**
+ * @brief 唤醒条件变量
+ * 
+ * @param cond 条件变量指针
+ * @return int 0表示成功,其他表示失败
+ */
+int cond_signal(cond_t *cond);
+
+//信号量
+/**
+ * @brief 初始化信号量
+ * 
+ * @param sem 信号量指针
+ * @param value 信号量初始值
+ * @return int 0表示成功,其他表示失败
+ */
+int my_sem_init(my_sem_t *sem, int value);
+
+/**
+ * @brief 销毁信号量
+ * 
+ * @param sem 信号量指针
+ * @return int 0表示成功,其他表示失败
+ */
+int my_sem_destroy(my_sem_t *sem);
+
+/**
+ * @brief 等待信号量
+ * 
+ * @param sem 信号量指针
+ * @return int 0表示成功,其他表示失败
+ */
+int my_sem_wait(my_sem_t *sem);
+
+/**
+ * @brief 发送信号量
+ * 
+ * @param sem 信号量指针
+ * @return int 0表示成功,其他表示失败
+ */
+int my_sem_post(my_sem_t *sem);
 
 #endif
