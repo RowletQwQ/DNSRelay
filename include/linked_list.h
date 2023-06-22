@@ -27,15 +27,27 @@ struct linked_list_node {
 struct list_ops_unit linked_list_create();
 
 // 2.插入数据到双向链表首部, 返回值: 1-成功, 0-失败, 插入到链表首部
-int32 linked_list_insert_head(struct linked_list_node *head, int8 *data, int32 data_len);
+int32 linked_list_insert_head(struct list_ops_unit ops_unit, int8 *data, int32 data_len);
 
 // 3.插入数据到双向链表尾部, 返回值: 1-成功, 0-失败, 插入到链表尾部
-int32 linked_list_insert_tail(struct linked_list_node *head, int8 *data, int32 data_len);
+int32 linked_list_insert_tail(struct list_ops_unit ops_unit, int8 *data, int32 data_len);
 
 // 4.删除双向链表的头节点, 返回值: 返回删除的节点, NULL表示删除失败
-struct linked_list_node *linked_list_delete_head(struct linked_list_node *head);
+struct linked_list_node *linked_list_delete_head(struct list_ops_unit ops_unit);
 
 // 5.删除双向链表的尾节点, 返回值: 返回删除的节点, NULL表示删除失败
-struct linked_list_node *linked_list_delete_tail(struct linked_list_node *tail);
+struct linked_list_node *linked_list_delete_tail(struct list_ops_unit ops_unit);
+
+// 6.返回第一个节点, NULL表示没有节点
+struct linked_list_node *linked_list_get_head(struct list_ops_unit ops_unit);
+
+// 7.返回最后一个节点, NULL表示没有节点
+struct linked_list_node *linked_list_get_tail(struct list_ops_unit ops_unit);
+
+// 8.释放一个节点的内存
+void linked_list_free_node(struct linked_list_node *node);
+
+// 9.释放双向链表的内存
+void linked_list_free(struct list_ops_unit ops_unit);
 
 #endif 
