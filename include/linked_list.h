@@ -21,6 +21,7 @@ struct linked_list_node {
     int32 data_len; // 数据长度
     int8 *data; // 数据
 };
+typedef struct linked_list_node linked_list_node;
 
 /*
     双向链表相关操作
