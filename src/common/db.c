@@ -17,7 +17,7 @@ int32 init_db() {
     }
 
     // 创建表
-    char *create_table_sql = "CREATE TABLE domin_table (domin_name TEXT PRIMARY KEY, ip_type INTEGER, ip BLOB, expire_time INTEGER);";
+    char *create_table_sql = "CREATE TABLE domin_table (domin_name TEXT PRIMARY KEY, record_type INTEGER, record BLOB, expire_time INTEGER);";
     ret = sqlite3_exec(db, create_table_sql, NULL, 0, &err_msg);
     if (ret != SQLITE_OK) {
         fprintf(stdout, "create table failed\n");
@@ -32,7 +32,7 @@ int32 init_db() {
 }
 
 // 2.根据域名查询, 结果为NULL表示查询失败
-struct ip_dto *query_by_domin_name(int8 *domin_name) {
+struct record_dto *query_by_domin_name(const char *domin_name) {
     // 打开数据库
     sqlite3 *db = NULL;
     char *err_msg = NULL;
@@ -100,9 +100,9 @@ struct ip_dto *query_by_domin_name(int8 *domin_name) {
     }
 
     // 获取查询结果
-    struct ip_dto *dto = (struct ip_dto *)malloc(sizeof(struct ip_dto));
-    dto->ip_type = sqlite3_column_int(stmt, 1);
-    memcpy(dto->ip, sqlite3_column_blob(stmt, 2), sqlite3_column_bytes(stmt, 2));
+    struct record_dto *dto = (struct record_dto *)malloc(sizeof(struct record_dto));
+    dto->record_dto = sqlite3_column_int(stmt, 1);
+    memcpy(dto->record, sqlite3_column_blob(stmt, 2), sqlite3_column_bytes(stmt, 2));
 
     // 关闭数据库
     sqlite3_close(db);
@@ -111,7 +111,7 @@ struct ip_dto *query_by_domin_name(int8 *domin_name) {
 }
 
 // 3.插入一条域名信息
-int32 insert_domin_info(int8 *domin_name, uint16 ip_type, uint8 ip[16], int32 ttl) {
+int32 insert_domin_info(const char *domin_name, uint16 record_type, byte record[256], int32 ttl) {
     // 打开数据库
     sqlite3 *db = NULL;
     char *err_msg = NULL;
@@ -124,7 +124,7 @@ int32 insert_domin_info(int8 *domin_name, uint16 ip_type, uint8 ip[16], int32 tt
 
     // 插入, 先计算过期时间
     int64 expire_time = time(NULL) + ttl;
-    char *insert_sql = "INSERT INTO domin_table (domin_name, ip_type, ip, expire_time) VALUES (?, ?, ?, ?);";
+    char *insert_sql = "INSERT INTO domin_table (domin_name, record_type, record, expire_time) VALUES (?, ?, ?, ?);";
     sqlite3_stmt *stmt = NULL;
     ret = sqlite3_prepare_v2(db, insert_sql, -1, &stmt, NULL);
     if (ret != SQLITE_OK) {
@@ -140,13 +140,13 @@ int32 insert_domin_info(int8 *domin_name, uint16 ip_type, uint8 ip[16], int32 tt
         sqlite3_close(db);
         return FAIL;
     }
-    ret = sqlite3_bind_int(stmt, 2, ip_type);
+    ret = sqlite3_bind_int(stmt, 2, record_type);
     if (ret != SQLITE_OK) {
         fprintf(stdout, "bind param failed\n");
         sqlite3_close(db);
         return FAIL;
     }
-    ret = sqlite3_bind_blob(stmt, 3, ip, 16, NULL);
+    ret = sqlite3_bind_blob(stmt, 3, record, 256, NULL);
     if (ret != SQLITE_OK) {
         fprintf(stdout, "bind param failed\n");
         sqlite3_close(db);

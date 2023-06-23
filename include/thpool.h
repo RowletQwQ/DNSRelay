@@ -1,6 +1,6 @@
 //线程池相关函数声明
-#ifndef THREAD_POOL_H
-#define THREAD_POOL_H
+#ifndef THPOOL_H
+#define THPOOL_H
 
 #ifdef _WIN32
 #include <windows.h>
