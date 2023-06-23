@@ -7,13 +7,20 @@
 #define LOG_LEVEL_INFO 1 //一般信息
 #define LOG_LEVEL_WARN 2 //警告信息
 #define LOG_LEVEL_ERROR 3 //错误信息
-#define LOG_LEVEL_FATAL 4 //致命信息
 
 //宏定义函数
 #define LOG_DEBUG(format, ...) write_log(LOG_LEVEL_DEBUG, format, ##__VA_ARGS__)
 #define LOG_INFO(format, ...) write_log(LOG_LEVEL_INFO, format, ##__VA_ARGS__)
 #define LOG_WARN(format, ...) write_log(LOG_LEVEL_WARN, format, ##__VA_ARGS__)
 #define LOG_ERROR(format, ...) write_log(LOG_LEVEL_ERROR, format, ##__VA_ARGS__)
+
+/**
+ * @brief 初始化日志打印,需要在main函数中调用,会开启线程池
+ * 
+ * @param log_file_name 日志文件名
+ * @param flag 日志级别
+ */
+void init_log(const char *log_file_name, int flag);
 /**
  * @brief 日志打印函数
  * 

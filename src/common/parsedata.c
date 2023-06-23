@@ -6,7 +6,7 @@ int parse_to_domain(char * message,char * domain,int len){
     int i = 0, j = 0;
     while (message[i] != 0) {
         if(i > len){
-            write_log(LOG_LEVEL_FATAL,"parse_to_domain error");
+            LOG_ERROR("parse_to_domain error");
             exit(1);
         }
         int len = message[i];
@@ -22,7 +22,7 @@ int parse_to_domain(char * message,char * domain,int len){
 }
 
 int parse_to_domains(char * message,char * domains[]){
-    struct dnsheader *dnshdr = (struct dnsheader *)message;
+    struct dns_header *dnshdr = (struct dns_header *)message;
     int qdcount = ntohs(dnshdr->qdcount);
 
     domains = (char **)malloc(sizeof(char *) * qdcount);
@@ -35,16 +35,17 @@ int parse_to_domains(char * message,char * domains[]){
         domain = (char *)malloc(sizeof(char) * 256);
         
         if(domain == NULL){
-            write_log(LOG_LEVEL_FATAL,"malloc failed");
+            LOG_ERROR("malloc failed");
             exit(1);
         }
 
         offset += parse_to_domain(buf + offset, domain, 256);
-        write_log(LOG_LEVEL_INFO,"query name: %s",domain);
+        LOG_INFO("query name: %s",domain);
         domains[i] = domain;
     }
 
-    write_log(LOG_LEVEL_INFO,"query name: %s",dns_name);
+    LOG_INFO("query name: %s",dns_name);
+    
     return qdcount;
 }
 

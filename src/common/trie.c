@@ -17,6 +17,7 @@ static int32 trans_char_to_index(int8 c) {
     } else if (c == '-') {
         return 37;
     } else {
+        
         return -1; // 表示不合法
     }
 }
