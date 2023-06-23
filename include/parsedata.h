@@ -45,7 +45,7 @@ struct dns_answer {
  * @return int 域名组的个数
  */
 
-int parse_to_domains(char * message,char * domains[])
+int parse_to_domains(char * message,char * domains[]);
 
 /**
  * @brief 依次解析DNS报文的查询名到域名
@@ -54,7 +54,6 @@ int parse_to_domains(char * message,char * domains[])
  * @param domains 域名
  * @return int 域名的偏移量
  */
-
 int parse_to_domain(char * buffer,char * domain,int len);
 
 /**
