@@ -2,176 +2,81 @@
 #ifndef THPOOL_H
 #define THPOOL_H
 
-#ifdef _WIN32
-#include <windows.h>
-#include <process.h>
+#define THPOOL_SUCESS 0
+#define THPOOL_FAIL -1
 
-typedef HANDLE thread_t;
-typedef CRITICAL_SECTION mutex_t;
-typedef CONDITION_VARIABLE cond_t;
-typedef HANDLE my_sem_t;
-
-#else
-#include <pthread.h>
-#include <semaphore.h>
-
-typedef pthread_t thread_t;
-typedef pthread_mutex_t mutex_t;
-typedef pthread_cond_t cond_t;
-typedef sem_t my_sem_t;
-
-#endif
-//线程池
-struct thread_pool_t{
-    thread_t *threads; //线程数组
-    int thread_count; //线程数量
-    my_sem_t tasks; //任务信号量,表示任务数量
-    my_sem_t spaces; //空闲线程信号量,表示空闲线程数量
-    mutex_t tasks_mutex; //任务互斥锁
-    cond_t tasks_cond; //任务条件变量
-    int front; //任务队列头
-    int rear; //任务队列尾
-    int tasks_count; //任务数量
-    int shutdown; //线程池是否关闭
-    void (*process)(void *arg); //任务处理函数
-    void **task_arg; //任务参数
-};
-typedef struct thread_pool_t thread_pool_t;
+typedef struct thread_pool_t* thread_pool;
 
 /**
  * @brief 创建线程池
  * 
- * @param pool 线程池指针
- * @param thread_count 线程数量
- * @param process 任务处理函数
+ * 初始化一个线程池,在创建完指定数量的线程后，这个函数才会返回
+ * 
+ * @param thread_num 线程池中线程的数量
+ * @return thread_pool 线程池指针
+ */
+thread_pool thpool_create(int thread_num);
+
+/**
+ * @brief 把任务添加到线程池中
+ * 
+ * 把一个任务加入到线程池队列中
+ * 
+ * @example
+ * void print_num(int num){
+ *     printf("%d\n", num);
+ * }
+ *
+ *  int main(){
+ *     ..
+ *     int a = 10;
+ *     thpool_add_work(thpool, (void*)print_num, (void*)a);
+ *     ..
+ * }
+ * 
+ * @param pool 待添加任务的线程池
+ * @param func 任务函数
+ * @param arg 任务函数的参数
  * @return int 0表示成功,其他表示失败
  */
-int thread_pool_init(thread_pool_t *pool, int thread_count, void (*process)(void *arg));
+int thpool_add_work(thread_pool pool, void *(*func)(void *), void *arg);
+
+/**
+ * @brief 等待线程池中所有任务结束
+ * 
+ * 等待线程池中所有任务结束
+ * 
+ * @param pool 线程池指针
+ */
+void thpool_wait(thread_pool pool);
+
+/**
+ * @brief 暂停线程池中所有任务
+ * 
+ * @param pool 线程池指针
+ */
+void thpool_pause(thread_pool pool);
+
+/**
+ * @brief 恢复线程池中所有任务
+ * 
+ * @param pool 线程池指针
+ */
+void thpool_resume(thread_pool pool);
 
 /**
  * @brief 销毁线程池
  * 
  * @param pool 线程池指针
- * @return int 0表示成功,其他表示失败
  */
-int thread_pool_destroy(thread_pool_t *pool);
+void thpool_destroy(thread_pool pool);
 
 /**
- * @brief 提交任务
+ * @brief 获取线程池中线程的数量
  * 
  * @param pool 线程池指针
- * @param arg 任务参数
- * @return int 0表示成功,其他表示失败
+ * @return int 线程池中线程的数量
  */
-int thread_pool_submit(thread_pool_t *pool, void *arg);
-
-/**
- * @brief 关闭线程池
- * 
- * @param pool 线程池指针
- * @return int 0表示成功,其他表示失败
- */
-int thread_pool_shutdown(thread_pool_t *pool);
-
-//互斥锁
-/**
- * @brief 初始化互斥锁
- * 
- * @param mutex 互斥锁指针
- * @return int 0表示成功,其他表示失败
- */
-int mutex_init(mutex_t *mutex);
-
-/**
- * @brief 销毁互斥锁
- * 
- * @param mutex 互斥锁指针
- * @return int 0表示成功,其他表示失败
- */
-int mutex_destroy(mutex_t *mutex);
-
-/**
- * @brief 加锁
- * 
- * @param mutex 互斥锁指针
- * @return int 0表示成功,其他表示失败
- */
-int mutex_lock(mutex_t *mutex);
-
-/**
- * @brief 解锁
- * 
- * @param mutex 互斥锁指针
- * @return int 0表示成功,其他表示失败
- */
-int mutex_unlock(mutex_t *mutex);
-
-//条件变量
-/**
- * @brief 初始化条件变量
- * 
- * @param cond 条件变量指针
- * @return int 0表示成功,其他表示失败
- */
-int cond_init(cond_t *cond);
-
-/**
- * @brief 销毁条件变量
- * 
- * @param cond 条件变量指针
- * @return int 0表示成功,其他表示失败
- */
-int cond_destroy(cond_t *cond);
-
-/**
- * @brief 等待条件变量
- * 
- * @param cond 条件变量指针
- * @param mutex 互斥锁指针
- * @return int 0表示成功,其他表示失败
- */
-int cond_wait(cond_t *cond, mutex_t *mutex);
-
-/**
- * @brief 唤醒条件变量
- * 
- * @param cond 条件变量指针
- * @return int 0表示成功,其他表示失败
- */
-int cond_signal(cond_t *cond);
-
-//信号量
-/**
- * @brief 初始化信号量
- * 
- * @param sem 信号量指针
- * @param value 信号量初始值
- * @return int 0表示成功,其他表示失败
- */
-int my_sem_init(my_sem_t *sem, int value);
-
-/**
- * @brief 销毁信号量
- * 
- * @param sem 信号量指针
- * @return int 0表示成功,其他表示失败
- */
-int my_sem_destroy(my_sem_t *sem);
-
-/**
- * @brief 等待信号量
- * 
- * @param sem 信号量指针
- * @return int 0表示成功,其他表示失败
- */
-int my_sem_wait(my_sem_t *sem);
-
-/**
- * @brief 发送信号量
- * 
- * @param sem 信号量指针
- * @return int 0表示成功,其他表示失败
- */
-int my_sem_post(my_sem_t *sem);
+int thpool_get_thread_num(thread_pool pool);
 
 #endif
