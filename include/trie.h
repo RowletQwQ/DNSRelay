@@ -37,7 +37,7 @@ struct trie_node {
 static struct list_ops_unit ops_unit;
 static int32 trans_char_to_index(int8 c);
 static struct trie_node *new_trie_node();
-static void free_trie_node(struct trie_node *node);
+static int32 cache_num(struct trie_node *root);
 
 /*
     字典树相关操作
@@ -54,6 +54,9 @@ int32 trie_delete(struct trie_node *root, int8 *key_domin_name);
 
 // 4.查找一个域名对应的ip地址, 返回值: ip地址, 为NULL表示查找失败
 struct ip_info *trie_search(struct trie_node *root, int8 *key_domin_name);
+
+// 5.递归释放字典树某个节点
+void free_trie_node(struct trie_node *node);
 
 
 

@@ -1,6 +1,9 @@
 #include "trie.h"
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
+
+#include <stdio.h>
 
 static int32 trans_char_to_index(int8 c) {
     if (c >= 'a' && c <= 'z') {
@@ -27,23 +30,14 @@ static struct trie_node *new_trie_node() {
     return node;
 }
 
-static void free_trie_node(struct trie_node *node) {
-    if (node == NULL) {
-        return;
+static int32 cache_num(struct trie_node *root) {
+    int32 num = 0;
+    for (int i = 0; i < CHARSET_SIZE; i++) {
+        if (root->next[i] != NULL) {
+            num += root->next[i]->through_cnt;
+        }
     }
-    for (int32 i = 0; i < CHARSET_SIZE; i++) {
-        free_trie_node(node->next[i]);
-    }
-
-    // 删除ip信息
-    if (node->ip_info != NULL) {
-        free(node->ip_info);
-    }
-    // 删除链表节点
-    if (node->list_node != NULL) {
-        linked_list_delete_node(ops_unit, node->list_node);
-    }
-    free(node);
+    return num;
 }
 
 
@@ -61,6 +55,25 @@ struct trie_node *trie_create() {
 
 // 2.插入字符串(key为域名, value为ip地址), 返回值: 1-成功, 0-失败
 int32 trie_insert(struct trie_node *root, int8 *key_domin_name, uint16 ip_type, uint8 ip[16]) {
+    // 如果缓存数量已经达到上限, 就需要先删除链表中最后一个节点
+    if (cache_num(root) == MAX_CACHE_SIZE) {
+        struct linked_list_node *last_node = linked_list_get_tail(ops_unit);
+        if (last_node == NULL) {
+            return 0;
+        }
+        if (sizeof(struct put_list_data) != last_node->data_len) {
+            return 0;
+        }
+        struct put_list_data *put_list_data = (struct put_list_data *)last_node->data;
+        if (put_list_data == NULL) {
+            return 0;
+        }
+        if (trie_delete(root, put_list_data->domin_name) == 0) {
+            return 0;
+        }
+    }
+
+
     struct trie_node *cur = root;
     // 遍历域名
     while (*key_domin_name != '\0') {
@@ -75,9 +88,8 @@ int32 trie_insert(struct trie_node *root, int8 *key_domin_name, uint16 ip_type, 
             continue;
         }
         // 否则新建一个字典树节点
-        struct trie_node *node = new_trie_node();
-        cur->next[c_index] = node;
-        cur = node;
+        cur->next[c_index] = new_trie_node();
+        cur = cur->next[c_index];
         cur->through_cnt++;  
 
         // key_domin_name指针后移
@@ -137,6 +149,8 @@ struct ip_info *trie_search(struct trie_node *root, int8 *key_domin_name) {
             return NULL;
         }
         cur = cur->next[index];
+        // key_domin_name指针后移
+        key_domin_name++;
     }
 
     // 将cur指向的节点的链表节点的查询次数加1
@@ -160,4 +174,24 @@ struct ip_info *trie_search(struct trie_node *root, int8 *key_domin_name) {
         return cur->ip_info;
     }
     return NULL;
+}
+
+// 5.递归释放字典树节点
+void free_trie_node(struct trie_node *node) {
+    if (node == NULL) {
+        return;
+    }
+    for (int32 i = 0; i < CHARSET_SIZE; i++) {
+        free_trie_node(node->next[i]);
+    }
+
+    // 删除ip信息
+    if (node->ip_info != NULL) {
+        free(node->ip_info);
+    }
+    // 删除链表节点
+    if (node->list_node != NULL) {
+        linked_list_free_node(node->list_node);
+    }
+    free(node);
 }
