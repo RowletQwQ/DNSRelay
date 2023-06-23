@@ -37,27 +37,76 @@ struct trie_node {
 
 // 一些静态函数
 static struct list_ops_unit ops_unit;
+
+/**
+ * @brief 将字符转换为字典树节点的索引
+ * 
+ * @param c 字符
+ * @return int32 字典树节点的索引 
+ */
 static int32 trans_char_to_index(int8 c);
+
+/**
+ * @brief 创建一个新的字典树节点
+ * 
+ * @return struct trie_node* 返回新的字典树节点
+ */
 static struct trie_node *new_trie_node();
+
+/**
+ * @brief 计算字典树中节点的数量
+ * 
+ * @param root 字典树节点
+ * @return int32 返回总数量
+ */
 static int32 cache_num(struct trie_node *root);
 
 /*
     字典树相关操作
 */
 
-// 1.创建字典树, 返回值: 字典树根节点 (同时也创建了一个链表, 即初始化了ops_unit)
+
+/**
+ * @brief 创建字典树
+ * 
+ * @return struct trie_node* 返回字典树根节点 
+ */
 struct trie_node *trie_create();
 
-// 2.插入字符串(key为域名, value为ip地址), 返回值: 1-成功, 0-失败
+/**
+ * @brief 插入一个域名对应的ip地址, 返回值: 1-成功, 0-失败
+ * 
+ * @param root 字典树根节点
+ * @param key_domin_name 根域名
+ * @param ip_type ip类型
+ * @param ip ip地址
+ * @return int32 1-成功, 0-失败
+ */
 int32 trie_insert(struct trie_node *root, int8 *key_domin_name, uint16 ip_type, uint8 ip[16]);
 
-// 3.删除一个对应域名, 返回值: 1-成功, 0-失败
+/**
+ * @brief 删除一个对应域名, 返回值: 1-成功, 0-失败
+ * 
+ * @param root 字典树根节点
+ * @param key_domin_name 根域名
+ * @return int32 1-成功, 0-失败
+ */
 int32 trie_delete(struct trie_node *root, int8 *key_domin_name);
 
-// 4.查找一个域名对应的ip地址, 返回值: ip地址, 为NULL表示查找失败
+/**
+ * @brief 查找一个域名对应的ip地址, 返回值: ip地址, 为NULL表示查找失败
+ * 
+ * @param root 字典树根节点
+ * @param key_domin_name 根域名
+ * @return struct ip_info* ip地址, 为NULL表示查找失败
+ */
 struct ip_info *trie_search(struct trie_node *root, int8 *key_domin_name);
 
-// 5.递归释放字典树某个节点
+/**
+ * @brief 递归删除所有节点
+ * 
+ * @param node 字典树节点
+ */
 void free_trie_node(struct trie_node *node);
 
 

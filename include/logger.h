@@ -1,4 +1,5 @@
 //日志打印相关,需要实现异步输出日志
+#include <stdio.h>
 #ifndef _LOGGER_H_
 #define _LOGGER_H_
 
@@ -42,7 +43,6 @@ void stop_log_worker();
  * @param log_file 日志文件指针
  */
 void log_worker(FILE *log_file);
-
 
 
 #endif
