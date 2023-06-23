@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-
 #include <stdio.h>
+#include <time.h>
 
 static int32 trans_char_to_index(int8 c) {
     if (c >= 'a' && c <= 'z') {
@@ -54,7 +54,7 @@ struct trie_node *trie_create() {
 }
 
 // 2.插入字符串(key为域名, value为ip地址), 返回值: 1-成功, 0-失败
-int32 trie_insert(struct trie_node *root, int8 *key_domin_name, uint16 ip_type, uint8 ip[16]) {
+int32 trie_insert(struct trie_node *root, int8 *key_domin_name, uint16 ip_type, uint8 ip[16], int32 ttl) {
     // 如果缓存数量已经达到上限, 就需要先删除链表中最后一个节点
     if (cache_num(root) == MAX_CACHE_SIZE) {
         struct linked_list_node *last_node = linked_list_get_tail(ops_unit);
@@ -106,6 +106,8 @@ int32 trie_insert(struct trie_node *root, int8 *key_domin_name, uint16 ip_type, 
     struct put_list_data *put_list_data = (struct put_list_data *)malloc(sizeof(struct put_list_data));
     put_list_data->query_cnt = 0; // 查询次数初始化为0
     put_list_data->domin_name = key_domin_name; 
+    // 计算当前时间 + ttl (单位s) 的时间戳
+    put_list_data->expire_time = time(NULL) + (int64)ttl;
     linked_list_insert_tail(ops_unit, (int8*)put_list_data, sizeof(struct put_list_data));
     cur->list_node = linked_list_get_tail(ops_unit);
 
@@ -156,6 +158,13 @@ struct ip_info *trie_search(struct trie_node *root, int8 *key_domin_name) {
     // 将cur指向的节点的链表节点的查询次数加1
     if ((int32)sizeof(struct put_list_data) == cur->list_node->data_len) {
         struct put_list_data *put_list_data = (struct put_list_data *)cur->list_node->data;
+
+        // 如果当前时间已经超过了过期时间, 就将当前节点从字典树中删除, 并返回查询结果为NULL的结果
+        if (time(NULL) >= put_list_data->expire_time) {
+            trie_delete(root, put_list_data->domin_name);
+            return NULL;
+        }
+
         put_list_data->query_cnt++;
         cur->list_node->data = (int8*)put_list_data;
         // 然后将cur->list_node向前移动

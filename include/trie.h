@@ -24,6 +24,7 @@ struct ip_info {
 struct put_list_data {
     int32 query_cnt;
     int8 *domin_name;
+    int64 expire_time; // 过期时间
 };
 
 // 字典树节点
@@ -82,7 +83,7 @@ struct trie_node *trie_create();
  * @param ip ip地址
  * @return int32 1-成功, 0-失败
  */
-int32 trie_insert(struct trie_node *root, int8 *key_domin_name, uint16 ip_type, uint8 ip[16]);
+int32 trie_insert(struct trie_node *root, int8 *key_domin_name, uint16 ip_type, uint8 ip[16], int32 ttl);
 
 /**
  * @brief 删除一个对应域名, 返回值: 1-成功, 0-失败
