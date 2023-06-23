@@ -11,6 +11,8 @@
 #define MAX_CACHE_SIZE 1024 // 最大缓存数量
 #define IP_TYPE_IPV4 0
 #define IP_TYPE_IPV6 1
+#define SUCESS 1
+#define FAIL 0
 
 // ip信息节点
 struct ip_info {

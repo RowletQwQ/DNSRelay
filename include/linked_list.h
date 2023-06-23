@@ -5,6 +5,9 @@
 #include <stddef.h>
 #include "datatype.h"
 
+#define SUCESS 1
+#define FAIL 0
+
 // 包含首部和尾部节点的结构体
 struct list_ops_unit {
     struct linked_list_node *head;
