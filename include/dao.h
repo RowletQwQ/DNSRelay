@@ -8,50 +8,56 @@
 #define DAO_SUCCESS 0
 #define DAO_FAILURE -1
 
+//声明DNS记录的数据结构
+typedef struct DNSRecord
+{
+    char domin_name[256];//域名
+    uint16 record_type;// 记录类型
+    byte record[256]; // 记录数据
+    int64 expire_time; // 过期时间
+} DNSRecord;
 
-//暴露增删改查的接口
-//增
+// 以下是DNS记录的相关数据操作,为外部提供一个透明的接口,隐藏内部的缓存和数据库的实现细节
+// 增加一条记录
 /**
- * @brief 插入一条记录
+ * @brief 增加一条记录
  * 
- * @param data_type 插入记录的类型
- * @param data 插入记录的数据,指向一个结构体
- * @param size 插入记录的数据大小
- * @return int 0表示成功,其他表示失败
+ * @param record 记录长度
+ * @return int 成功返回0,失败返回-1
  */
-int insert_record(uint8 data_type,void* data,int size);
+int add_record(DNSRecord *record);
 
-//查
+// 删除一条域名对应的所有记录
 /**
- * @brief 查询记录
+ * @brief 删除一条域名对应的所有记录
  * 
- * @param data_type 查询记录的类型 
- * @param data 查询的条件,指向一个结构体
- * @param buf 查询结果的数据,指向一个结构体
- * @param buf_size 传入的缓冲区大小
- * @return int 0表示成功,其他表示失败
+ * @param domin_name 域名
+ * @param record_type 记录类型
+ * @return int 成功返回0,失败返回-1
  */
-int select_record(uint8 data_type,void* data,int size,void** buf,int buf_size);
+int delete_record(const char *domin_name);
 
-//改
+// 删除一条域名对应的指定类型的记录
 /**
- * @brief 更新记录
+ * @brief 删除一条域名对应的指定类型的记录
  * 
- * @param data_type 更新记录的类型
- * @param data 更新记录的数据,指向一个结构体
- * @param size 更新记录的数据大小
- * @return int 0表示成功,其他表示失败
+ * @param domin_name 域名
+ * @param record_type 记录类型
+ * @return int 成功返回0,失败返回-1
  */
-int update_record(uint8 data_type,void* data,int size);
+int delete_record_by_type(const char *domin_name, uint16 record_type);
 
-//删
+// 查询一条域名对应的所有记录
 /**
- * @brief 删除记录
+ * @brief 查询一条域名对应的所有记录
  * 
- * @param data_type 删除记录的类型
- * @param data 删除记录的数据,指向一个结构体
- * @param size 删除记录的数据大小
- * @return int 0表示成功,其他表示失败
+ * @param domin_name 域名
+ * @param record_type 记录类型
+ * @param record 记录
+ * @return int 成功返回长度,失败返回0
  */
-int delete_record(uint8 data_type,void* data,int size);
+int query_record(const char *domin_name, uint16 record_type, DNSRecord *record);
+
+
+
 #endif
