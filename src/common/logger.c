@@ -52,16 +52,16 @@ void write_log(int level, const char *format, ...){
     switch (level)
     {
         case LOG_LEVEL_DEBUG:
-            sprintf(log_str, "[DEBUG] %s %s", time_str, message);
+            sprintf(log_str, "%s [DEBUG] %s", time_str, message);
             break;
         case LOG_LEVEL_INFO:
-            sprintf(log_str, "[INFO] %s %s", time_str, message);
+            sprintf(log_str, "%s [INFO] %s", time_str, message);
             break;
         case LOG_LEVEL_WARN:
-            sprintf(log_str, "[WARN] %s %s", time_str, message);
+            sprintf(log_str, "%s [WARN] %s", time_str, message);
             break;
         case LOG_LEVEL_ERROR:
-            sprintf(log_str, "[ERROR] %s %s", time_str, message);
+            sprintf(log_str, "%s [ERROR] %s", time_str, message);
             break;
         default:
             break;
@@ -84,7 +84,7 @@ const char* get_time(){
         printf("logger:malloc failed\n");
         exit(1);
     }
-    sprintf(time_str, "%d-%d-%d %d:%d:%d", local->tm_year + 1900, local->tm_mon + 1, local->tm_mday,
+    sprintf(time_str, "%d-%d-%d %02d:%02d:%02d", local->tm_year + 1900, local->tm_mon + 1, local->tm_mday,
         local->tm_hour, local->tm_min, local->tm_sec);
     return time_str;
 }
