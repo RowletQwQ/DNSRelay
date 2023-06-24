@@ -2,7 +2,7 @@
 #ifndef THPOOL_H
 #define THPOOL_H
 
-#define THPOOL_SUCESS 0
+#define THPOOL_SUCCESS 0
 #define THPOOL_FAIL -1
 
 typedef struct thread_pool_t* thread_pool;
@@ -42,7 +42,7 @@ thread_pool thpool_create(int thread_num);
  * @param arg 任务函数的参数
  * @return int 0表示成功,其他表示失败
  */
-int thpool_add_work(thread_pool pool, void *(*func)(void *), void *arg);
+int thpool_add_work(thread_pool pool, void (*func)(void *), void *arg);
 
 /**
  * @brief 等待线程池中所有任务结束

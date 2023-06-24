@@ -6,7 +6,6 @@
 #include <errno.h>
 #include <string.h>
 #include <time.h>
-
 #include "datatype.h"
 #include "linked_list.h"
 #include "thpool.h"
@@ -39,7 +38,7 @@ typedef struct work_queue {
     int size; // 队列中任务的数量
 } work_queue_t;
 
-
+typedef struct thread_pool_t thread_pool_t;
 /* 工作线程 */
 typedef struct work_thread {
     int id; // 线程id
@@ -51,8 +50,8 @@ typedef struct thread_pool_t {
     thread_t** threads; // 线程池中线程的数组
     int num_thread_alive; // 线程池中存活的线程数量
     int num_thread_working; // 线程池中正在工作的线程数量
-    phread_mutex_t thcount_lock; // 互斥锁,在线程技术等时候使用
-    phread_cond_t threads_all_idle; // 条件变量,thpool_wait()函数中使用
+    pthread_mutex_t thcount_lock; // 互斥锁,在线程技术等时候使用
+    pthread_cond_t threads_all_idle; // 条件变量,thpool_wait()函数中使用
     work_queue_t work_queue; // 工作队列
 } thread_pool_t;
 
@@ -96,7 +95,7 @@ thread_pool_t* thpool_create(int thread_num){
     thread_pool_ptr->num_thread_working = 0;
 
     // 初始化工作队列
-    if(jobqueue_init(&thread_pool_ptr->work_queue) == THPOOL_FAIL){
+    if(work_queue_init(&thread_pool_ptr->work_queue) == THPOOL_FAIL){
         LOG_ERROR("thpool_create(): Could not allocate memory for work queue\n");
         free(thread_pool_ptr);
         return NULL;
@@ -106,7 +105,7 @@ thread_pool_t* thpool_create(int thread_num){
     thread_pool_ptr->threads = (thread_t **)malloc(sizeof(thread_t *) * thread_num);
     if (thread_pool_ptr->threads == NULL) {
         LOG_ERROR("thpool_create(): Could not allocate memory for threads\n");
-        jobqueue_destroy(&thread_pool_ptr->work_queue);
+        work_queue_destroy(&thread_pool_ptr->work_queue);
         free(thread_pool_ptr);
         return NULL;
     }
@@ -120,7 +119,7 @@ thread_pool_t* thpool_create(int thread_num){
         LOG_DEBUG("thpool_create(): Created thread %d in pool \n", i);
         if (pthread_detach(thread_pool_ptr->threads[i]->thread) != 0) {
             LOG_ERROR("thpool_create(): Could not detach thread %d\n", i);
-            jobqueue_destroy(&thread_pool_ptr->work_queue);
+            work_queue_destroy(&thread_pool_ptr->work_queue);
             thpool_destroy(thread_pool_ptr);
             return NULL;
         }
@@ -132,14 +131,14 @@ thread_pool_t* thpool_create(int thread_num){
 }
 
 // 把任务添加到线程池中
-int thpool_add_work(thread_pool_t *thread_pool_ptr, void (*function)(void *), void *arg){
+int thpool_add_work(thread_pool_t *thread_pool_ptr, void (*func)(void *), void *arg){
     work_t *work;
     work = (work_t *)malloc(sizeof(work_t));
     if (work == NULL) {
         LOG_ERROR("thpool_add_work(): Could not allocate memory for new work\n");
         return THPOOL_FAIL;
     }
-    work->function = function;
+    work->function = func;
     work->arg = arg;
 
     work_queue_push(&thread_pool_ptr->work_queue, work);
@@ -150,7 +149,7 @@ int thpool_add_work(thread_pool_t *thread_pool_ptr, void (*function)(void *), vo
 // 等待线程池中的所有线程完成任务
 void thpool_wait(thread_pool_t *thread_pool_ptr){
     pthread_mutex_lock(&thread_pool_ptr->thcount_lock);
-    while (thread_pool_ptr->work_queue.length || thread_pool_ptr->num_thread_working) {
+    while (thread_pool_ptr->work_queue.size || thread_pool_ptr->num_thread_working) {
         pthread_cond_wait(&thread_pool_ptr->threads_all_idle, &thread_pool_ptr->thcount_lock);
     }
     pthread_mutex_unlock(&thread_pool_ptr->thcount_lock);
@@ -193,6 +192,7 @@ void thpool_pause(thread_pool_t *thread_pool_ptr){
 // 恢复线程池中的所有线程
 void thpool_resume(thread_pool_t *thread_pool_ptr){
     //TODO 增加单一线程池恢复的支持
+    (void)thread_pool_ptr;
     threads_on_hold = 0;
 }
 
@@ -220,7 +220,7 @@ static int thread_init(thread_t **thread_ptr, thread_pool_t *thread_pool_ptr, in
     (*thread_ptr)->thread_pool_ptr = thread_pool_ptr;
     (*thread_ptr)->id = id;
 
-    pthread_create(&(*thread_ptr)->thread, NULL, (void *)thread_do, (*thread_ptr));
+    pthread_create(&(*thread_ptr)->thread, NULL, (void * (*)(void *))thread_do, (*thread_ptr));
     pthread_detach((*thread_ptr)->thread);
 
     return THPOOL_SUCCESS;
@@ -281,6 +281,7 @@ static void *thread_do(thread_t *thread){
  * @param sig_id 暂时只有SIGUSR1，所以这个参数没啥用（目前）
  */
 static void thread_hold(int sig_id){
+    (void)sig_id;
     threads_on_hold = 1;
     while (threads_on_hold) {
         sleep(1);
@@ -306,10 +307,6 @@ static void thread_destroy(thread_t *thread){
  */
 static int work_queue_init(work_queue_t *work_queue){
     work_queue->list = linked_list_create();
-    if (work_queue->list == NULL) {
-        LOG_ERROR("work_queue_init(): Could not allocate memory for work queue\n");
-        return THPOOL_FAIL;
-    }
     work_queue->size = 0;
     work_queue->has_jobs = (semaphore_t *)malloc(sizeof(semaphore_t));
     if(work_queue->has_jobs == NULL){
@@ -424,7 +421,7 @@ static void semaphore_post(semaphore_t *semaphore){
  * @param semaphore 需要重置的信号量
  */
 static void semaphore_reset(semaphore_t *semaphore){
-    semephore_init(semaphore, 0);
+    semaphore_init(semaphore, 0);
 }
 
 /**

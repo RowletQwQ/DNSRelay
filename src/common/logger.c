@@ -1,18 +1,21 @@
 #include "logger.h"
 
-#ifndef DISABLE_MUTI_THREAD
-#include "thpool.h"
-static int thread_pool_size = 0;
-static int thread_pool_alive = 0;
-static thread_pool log_thread_pool = NULL;
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
 #include <time.h>
 #include <assert.h>
+#include <stddef.h>
+
+#ifndef DISABLE_MUTI_THREAD
+#include "thpool.h"
+static thread_pool log_thread_pool = NULL;
+#endif
+
+#ifndef _WIN32
+
+#endif
 
 
 static FILE *log_file = NULL;
@@ -70,7 +73,7 @@ void write_log(int level, const char *format, ...){
     //随后将日志字符串传入线程池
 #ifndef DISABLE_MUTI_THREAD
     if(log_thread_pool != NULL){
-        thpool_add_work(log_thread_pool, (void *)log_worker, (void *)log_str);
+        thpool_add_work(log_thread_pool, log_worker, (void *)log_str);
     }else{
         log_worker(log_str);
     }
@@ -83,19 +86,20 @@ const char* get_time(){
     time_t now;
     time(&now);
     struct tm *local = localtime(&now);
-    char *time_str = (char *)malloc(sizeof(char) * 20);
+    char *time_str = (char *)malloc(sizeof(char) * 100);
     if(time_str == NULL){
         printf("logger:malloc failed\n");
         exit(1);
     }
+    memset(time_str, 0, sizeof(char) * 100);
     sprintf(time_str, "%d-%02d-%02d %02d:%02d:%02d", local->tm_year + 1900, local->tm_mon + 1, local->tm_mday,
         local->tm_hour, local->tm_min, local->tm_sec);
     return time_str;
 }
 
-void log_worker(const char *str){
+void log_worker(void *str){
     assert(log_file != NULL);
-    fprintf(log_file, "%s\n", str);
+    fprintf(log_file, "%s\n", (char*)str);
     fflush(log_file);
     free((void *)str);
 }

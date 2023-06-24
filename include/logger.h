@@ -44,7 +44,7 @@ const char* get_time();
  * 
  * @param str 日志字符串
  */
-void log_worker(const char *str);
+void log_worker(void *str);
 
 
 #endif
