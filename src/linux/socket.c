@@ -7,10 +7,14 @@
 
 #include "socket.h"
 #include "logger.h"
+#include "taskworker.h"
+#include "linked_list.h"
 // 定义变量
 int sock;
 struct sockaddr_in any_in_adr, dns_addr;
 char dns_server[16];
+// 任务池
+extern struct linked_list_unit task_pool;
 
 void socket_init(){
     sock = socket(AF_INET, SOCK_DGRAM, 0);
@@ -45,32 +49,32 @@ void socket_close(int sock){
 }
 
 void socket_req_listen(){
-    int new_socket;// 接收到的req
-    // 建立监听关系 3 是最大监听数
-    if (listen(sock, 3) < 0) {
-        write_log(LOG_LEVEL_FATAL,"listen build failed\n");
-        exit(1);
-    }
-    
+    char recv_message[DNS_MAX_LENGTH] = {0};
     // 循环监听
     while (1) {
-        if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen))<0) {
-            write_log(LOG_LEVEL_FATAL,"accept failed\n");
-            continue;
-        }
-
-        // 从新的Socket描述符中读取数据
-        int nbytes = recv(new_socket, buffer, 1024, 0);
+        struct sockaddr addr_recv;
+        int addr_recv_len = sizeof(recv_addr);
+        
+        int ret = recvfrom(sock, recv_message, DNS_MAX_LENGTH, 0,(struct sockaddr *) &addr_recv, &addr_recv_len);
         
         if (nbytes == -1) {
-            write_log(LOG_LEVEL_ERROR,"recv failed\n");
+            // write_log(LOG_LEVEL_ERROR,"recv failed\n");
             exit(EXIT_FAILURE);
         } else if (nbytes == 0) {
-            write_log(LOG_LEVEL_ERROR,"connection is close by peer\n");
+            // write_log(LOG_LEVEL_ERROR,"connection is close by peer\n");
+            // 接受失败
+            continue;
         } else {
-            // 把监听到的端口加入到任务池
+            // 复制
+            struct task task_;
+            task_.addr = addr_recv;
+            task_.sock_len = addr_recv_len;
+            char * message = (char *)malloc(DNS_MAX_LENGTH*sizeof(char));
+            memcpy(message, recv_message, ret);
+            task_.m_len = ret;
             
-            write_log(LOG_LEVEL_INFO,"new request locate in %d sock", new_socket);
+            // 添加到任务池
+            linked_list_insert_tail(task_pool, *task_,sizeof(struct task));
         }
     }
 }

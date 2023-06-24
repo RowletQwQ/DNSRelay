@@ -44,41 +44,32 @@ struct dns_answer {
     unsigned int rdata;    // 数据
 };
 
-
+/**
+ * @brief 将任务数据转换为DNS应答报文
+ * @param task_ 处理好的任务
+ */
+void parse_to_dnsres(struct task * task_);
 
 /**
- * @brief 解析DNS报文中的查询名到域名组
+ * @brief 把req转换成answer部分报文
  * 
- * @param message DNS报文
- * @param domains 域名组
- * @return int 域名组的个数
+ * @param req_ 单个查询任务请求和响应内容
+ * @param answer DNS应答报文缓存区
+ * @param message 报文数据
+ * @return answer部分长度
  */
-int parse_to_domains(char * message,char * domains[])
+int parse_to_answer(const struct req* req_,char* answer,const char *message);
 
 /**
- * @brief 依次解析DNS报文的查询名到域名
+ * @brief 读取报文中的查询部分，填充到req_中
  * 
- * @param message 部分DNS报文
- * @param domains 域名
- * @return int 域名的偏移量
+ * @param req_ 单个查询任务请求和响应内容
+ * @param buffer 部分报文内容，待解析区
+ * @return int 该查询部分长度
  */
-int parse_to_domain(char * buffer,char * domain,int len);
+int parse_to_req(const char *buffer,struct req * req_);
 
-/**
- * @brief 增添ip数据到DNS应答报文中
- * 
- * @param ip ip地址
- * @param message DNS应答报文
- */
-void parse_add_dnsans(char *ip[],int len,char * message,int m_len);
-
-/**
- * @brief 把req请求回答添加到answer中
- * 
- * @param req 请求和响应内容
- * @param message DNS应答报文缓存区
- */
-int parse_to_answer(struct req* req_,char* answer);
+int parse_to_reqs(struct task * task_);
 
 
 #endif

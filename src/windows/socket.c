@@ -1,18 +1,30 @@
+#include "socket.h"
+#include "taskworker.h"
+#include "linked_list.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <winsock2.h>
-#include "socket.h"
-#include "logger.h"
+
 // 定义变量
+
+// 监听端口和端口地址
 SOCKET sock;
 struct sockaddr_in any_in_adr, dns_addr;
-char dns_server[16];
+
+// DNS服务器地址
+char dns_server_4[16] = "114.114.114.114";
+char dns_server_6[16];
+extern struct list_ops_unit task_pool;
 
 void socket_init(){
-    int sta = WSAStartup(MAKEWORD(2, 2), &wsadata);
+    
+    // 初始化WSA
+    WSADATA wsaData;
+    int sta = WSAStartup(MAKEWORD(2, 2), &wsaData);
     
     if (sta != 0) {
-        write_log(LOG_LEVEL_FATAL,"WSAStartup() failed\n");
+        printf("fail to init");
+        // write_log(LOG_LEVEL_FATAL,"WSAStartup() failed\n");
         exit(1);
     }
 
@@ -27,16 +39,19 @@ void socket_init(){
     // 给dns服务器赋值
     memset(&dns_addr, 0, sizeof(dns_addr));
     dns_addr.sin_family = AF_INET;
-    dns_addr.sin_addr.s_addr = inet_addr(dns_server);
+    dns_addr.sin_addr.s_addr = inet_addr(dns_server_4);
     dns_addr.sin_port = htons(53);
     
     // 绑定通信
     int ret = bind(sock, (struct sockaddr *)&any_in_adr, sizeof(any_in_adr));
     
     if (ret < 0) {
-        write_log(LOG_LEVEL_FATAL,"bind() failed\n");
+        printf("bind fail");
+        // write_log(LOG_LEVEL_FATAL,"bind() failed\n");
         exit(1);
     }
+    printf("inited");
+
 }
 
 void socket_close(int sock){
@@ -45,33 +60,51 @@ void socket_close(int sock){
 }
 
 void socket_req_listen(){
-    int new_socket;// 接收到的req
-    // 建立监听关系 3 是最大监听数
-    if (listen(sock, 3) < 0) {
-        write_log(LOG_LEVEL_FATAL,"listen build failed\n");
-        exit(1);
-    }
-    
+    // 报文缓存区
+    char recv_message[DNS_MAX_LENGTH] = {0};
+    printf("socket_req_listen\n");
     // 循环监听
     while (1) {
-        if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen))<0) {
-            write_log(LOG_LEVEL_FATAL,"accept failed\n");
+        struct sockaddr addr_recv;
+        int addr_recv_len = sizeof(addr_recv);
+        
+        int ret = recvfrom(sock, recv_message, DNS_MAX_LENGTH, 0,(struct sockaddr *) &addr_recv, &addr_recv_len);
+        
+        if (ret == -1) {
+            // 写日志
             continue;
+        } else if (ret == 0) {
+            continue;
+        } else {
+            // 复制
+            struct task task_;
+
+            task_.sock_len = addr_recv_len;
+            task_.addr = (char *)malloc(addr_recv_len);
+            
+            memcpy(task_.addr,(char *)&addr_recv,addr_recv_len);
+            
+            task_.sock_len = addr_recv_len;
+            char * message = (char *)malloc(DNS_MAX_LENGTH*sizeof(char));
+            memcpy(message, recv_message, ret);
+            task_.m_len = ret;
+            task_.message = message;
+            
+            for (int i = 0; i < ret; i++) {
+                printf("%02x ", task_.message[i]);
+            }
+            printf("\n");
+            
+            printf("recvfrom() success\n");
+
+            printf("task_.m_len = %d\n",task_.m_len);
+            
+            linked_list_insert_tail(task_pool,(int8 *) &task_,sizeof(struct task));
+            
+            printf("linked_list_insert_tail\n");
+
         }
 
-        // 从新的Socket描述符中读取数据
-        int nbytes = recv(new_socket, buffer, 1024, 0);
-        
-        if (nbytes == -1) {
-            write_log(LOG_LEVEL_ERROR,"recv failed\n");
-            exit(EXIT_FAILURE);
-        } else if (nbytes == 0) {
-            write_log(LOG_LEVEL_ERROR,"connection is close by peer\n");
-        } else {
-            // 把监听到的端口加入到任务池
-            
-            write_log(LOG_LEVEL_INFO,"new request locate in %d sock", new_socket);
-        }
     }
 }
 
@@ -79,17 +112,56 @@ int udp_recv(int sockfd, void *buf, int len, struct sockaddr *src_addr, int *add
     // 默认拿到地址信息
     int nbytes = recvfrom(sockfd, buf, len, 1, src_addr, addrlen);
     if (nbytes == -1) {
-        write_log(LOG_LEVEL_ERROR,"recv failed\n");
+        
     }
     return nbytes;
 }
 
 
+// 绑定给不同的端口
 int udp_send(int sockfd, const void *buf, int len, const struct sockaddr *dest_addr, int addrlen){
     
     int send_size =  sendto(sockfd, buf, len, 0, dest_addr, addrlen);
     if (send_size == SOCKET_ERROR) {
-        write_log(LOG_LEVEL_ERROR,"send failed\n");
+        // write_log(LOG_LEVEL_ERROR,"send failed\n");
+
+    }
+    return send_size;
+}
+
+int send_to_client(char *message,int len,struct sockaddr *src_addr, int addrlen){
+
+
+    //打印src_addr对应的地址
+    struct sockaddr_in *src_addr_in = (struct sockaddr_in *)src_addr;
+    char *src_ip = inet_ntoa(src_addr_in->sin_addr);
+    printf("src_ip = %s\n",src_ip);
+    printf("src_port = %d\n",src_addr_in->sin_port);
+
+
+    SOCKET send_sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_ANY); // 绑定到本地地址
+    addr.sin_port = 0; // 端口号设置为 0，系统自动分配随机端口
+    
+    int ret = bind(send_sock, (struct sockaddr *)&addr, sizeof(addr));
+    
+    if (ret == SOCKET_ERROR) {
+        printf("bind failed: %ld\n", WSAGetLastError());
+        closesocket(send_sock);
+        WSACleanup();
+        return 1;
+    }
+
+    int send_size =  sendto(sock, message, len, 0, src_addr, addrlen);
+    
+    if (send_size == SOCKET_ERROR) {
+        // write_log(LOG_LEVEL_ERROR,"send failed\n");
+        // 发送失败
+        printf("fail to send");
     }
     return send_size;
 }
