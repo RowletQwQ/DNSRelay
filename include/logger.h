@@ -1,5 +1,4 @@
 //日志打印相关,需要实现异步输出日志
-#include <stdio.h>
 #ifndef _LOGGER_H_
 #define _LOGGER_H_
 
@@ -8,11 +7,7 @@
 #define LOG_LEVEL_WARN 2 //警告信息
 #define LOG_LEVEL_ERROR 3 //错误信息
 
-//宏定义函数
-#define LOG_DEBUG(format, ...) write_log(LOG_LEVEL_DEBUG, format, ##__VA_ARGS__)
-#define LOG_INFO(format, ...) write_log(LOG_LEVEL_INFO, format, ##__VA_ARGS__)
-#define LOG_WARN(format, ...) write_log(LOG_LEVEL_WARN, format, ##__VA_ARGS__)
-#define LOG_ERROR(format, ...) write_log(LOG_LEVEL_ERROR, format, ##__VA_ARGS__)
+
 
 /**
  * @brief 初始化日志打印,需要在main函数中调用,会开启线程池
@@ -35,6 +30,13 @@ void write_log(int level, const char *format, ...);
  * 
  * @return 当前时间字符串
  */
+
+//宏定义函数
+#define LOG_DEBUG(format, ...) write_log(LOG_LEVEL_DEBUG, format, ##__VA_ARGS__)
+#define LOG_INFO(format, ...) write_log(LOG_LEVEL_INFO, format, ##__VA_ARGS__)
+#define LOG_WARN(format, ...) write_log(LOG_LEVEL_WARN, format, ##__VA_ARGS__)
+#define LOG_ERROR(format, ...) write_log(LOG_LEVEL_ERROR, format, ##__VA_ARGS__)
+
 const char* get_time();
 
 /**

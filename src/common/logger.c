@@ -1,5 +1,11 @@
 #include "logger.h"
+
+#ifndef DISABLE_MUTI_THREAD
 #include "thpool.h"
+static int thread_pool_size = 0;
+static int thread_pool_alive = 0;
+static thread_pool log_thread_pool = NULL;
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,9 +14,7 @@
 #include <time.h>
 #include <assert.h>
 
-static int thread_pool_size = 0;
-static int thread_pool_alive = 0;
-static thread_pool log_thread_pool = NULL;
+
 static FILE *log_file = NULL;
 static int log_flag = LOG_LEVEL_ERROR;
 //初始化日志打印,需要在main函数中调用,会开启线程池
@@ -21,8 +25,9 @@ void init_log(const char *log_file_name, int flag){
         exit(1);
     }
     log_flag = flag;
+#ifndef DISABLE_MUTI_THREAD
     log_thread_pool = thpool_create(1);//创建线程池
-    
+#endif
 }
 //日志打印函数,最大长度1024
 void write_log(int level, const char *format, ...){
@@ -63,7 +68,11 @@ void write_log(int level, const char *format, ...){
     }
     printf("%s\n", log_str);
     //随后将日志字符串传入线程池
+#ifndef DISABLE_MUTI_THREAD
     thpool_add_work(log_thread_pool, (void *)log_worker, (void *)log_str);
+#else
+    log_worker(log_str);
+#endif
 }
 
 const char* get_time(){
