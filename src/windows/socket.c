@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <winsock2.h>
-#include "../include/socket.h"
-#include "../include/logger.h"
+#include "socket.h"
+#include "logger.h"
 // 定义变量
 SOCKET sock;
 struct sockaddr_in any_in_adr, dns_addr;

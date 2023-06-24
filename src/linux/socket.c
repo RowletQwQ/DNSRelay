@@ -5,8 +5,8 @@
 #include <sys/time.h>
 #include <unistd.h>
 
-#include "../include/socket.h"
-#include "../include/logger.h"
+#include "socket.h"
+#include "logger.h"
 // 定义变量
 int sock;
 struct sockaddr_in any_in_adr, dns_addr;
