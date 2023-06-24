@@ -21,16 +21,17 @@ thread_pool thpool_create(int thread_num);
  * @brief 把任务添加到线程池中
  * 
  * 把一个任务加入到线程池队列中
+ * 如果想要传递多个参数，可以把参数封装成一个结构体，然后把结构体指针传递进来
  * 
  * @example
- * void print_num(int num){
+ * void print(int num){
  *     printf("%d\n", num);
  * }
  *
  *  int main(){
  *     ..
  *     int a = 10;
- *     thpool_add_work(thpool, (void*)print_num, (void*)a);
+ *     thpool_add_work(thpool, (void*)print, (void*)a);
  *     ..
  * }
  * 
@@ -45,6 +46,7 @@ int thpool_add_work(thread_pool pool, void *(*func)(void *), void *arg);
  * @brief 等待线程池中所有任务结束
  * 
  * 等待线程池中所有任务结束
+ * 
  * 
  * @param pool 线程池指针
  */

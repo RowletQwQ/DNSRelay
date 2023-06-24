@@ -23,6 +23,7 @@
 void init_log(const char *log_file_name, int flag);
 /**
  * @brief 日志打印函数
+ * 日志格式为:日志级别 时间 日志内容
  * 
  * @param level 日志级别
  * @param format 格式化字符串
@@ -32,9 +33,9 @@ void write_log(int level, const char *format, ...);
 /**
  * @brief 获取当前时间
  * 
- * @return char* 当前时间字符串
+ * @return 当前时间字符串
  */
-char* get_time();
+const char* get_time();
 
 /**
  * @brief 开启日志打印线程
@@ -52,9 +53,9 @@ void stop_log_worker();
 /**
  * @brief 日志打印线程
  * 
- * @param log_file 日志文件指针
+ * @param str 日志字符串
  */
-void log_worker(FILE *log_file);
+void log_worker(const char *str);
 
 
 #endif
