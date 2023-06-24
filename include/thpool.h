@@ -11,6 +11,8 @@ typedef struct thread_pool_t* thread_pool;
  * @brief 创建线程池
  * 
  * 初始化一个线程池,在创建完指定数量的线程后，这个函数才会返回
+ * @example
+ * thread_pool thpool = thpool_create(10);
  * 
  * @param thread_num 线程池中线程的数量
  * @return thread_pool 线程池指针
