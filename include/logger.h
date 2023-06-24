@@ -38,19 +38,6 @@ void write_log(int level, const char *format, ...);
 const char* get_time();
 
 /**
- * @brief 开启日志打印线程
- * 
- * @param log_file 日志文件指针 
- */
-void start_log_worker(FILE *log_file);
-
-/**
- * @brief 关闭日志打印线程
- * 
- */
-void stop_log_worker();
-
-/**
  * @brief 日志打印线程
  * 
  * @param str 日志字符串

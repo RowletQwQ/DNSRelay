@@ -22,6 +22,7 @@ void init_log(const char *log_file_name, int flag){
     }
     log_flag = flag;
     log_thread_pool = thpool_create(1);//创建线程池
+    
 }
 //日志打印函数,最大长度1024
 void write_log(int level, const char *format, ...){
