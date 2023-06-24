@@ -69,7 +69,11 @@ void write_log(int level, const char *format, ...){
     printf("%s\n", log_str);
     //随后将日志字符串传入线程池
 #ifndef DISABLE_MUTI_THREAD
-    thpool_add_work(log_thread_pool, (void *)log_worker, (void *)log_str);
+    if(log_thread_pool != NULL){
+        thpool_add_work(log_thread_pool, (void *)log_worker, (void *)log_str);
+    }else{
+        log_worker(log_str);
+    }
 #else
     log_worker(log_str);
 #endif
