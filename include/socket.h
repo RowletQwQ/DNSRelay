@@ -72,6 +72,7 @@ void socket_close(int sock);
 
 /**
  * @brief 监听请求端口 将dns请求加入到任务池中
+ * @param arg 占位符
  */
 void socket_req_listen(void * arg);
 

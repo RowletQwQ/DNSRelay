@@ -90,21 +90,18 @@ int get_debug_level(){
 }
 
 
-struct dns_addr *get_dns_server(){
+struct my_dns_addr get_dns_server(){
+    struct my_dns_addr addr = {0};
     if(setting.dns_type == AF_INET){
-        struct dns_addr* addr = (struct dns_addr*)malloc(sizeof(struct dns_addr));
-        memset(addr,0,sizeof(struct dns_addr));
+        memset(addr,0,sizeof(struct my_dns_addr));
         addr->family = AF_INET;
         memcpy(&addr->u,&setting.dns_server_4,sizeof(struct in_addr));
-        return addr;
-    }else if(setting.dns_type == AF_INET6){
-        struct dns_addr* addr = (struct dns_addr*)malloc(sizeof(struct dns_addr));
-        memset(addr,0,sizeof(struct dns_addr));
+    }else if(setting.dns_type == AF_INET6){ 
+        memset(addr,0,sizeof(struct my_dns_addr));
         addr->family = AF_INET6;
         memcpy(&addr->u,&setting.dns_server_6,sizeof(struct in6_addr));
-        return addr;
     }
-    return NULL;
+    return addr;
 }
 
 char *get_dns_server_ip(){
@@ -123,4 +120,8 @@ char *get_user_file(){
 
 char *get_log_file(){
     return setting.log_file;
+}
+
+int get_dns_type(){
+    return setting.dns_type;
 }

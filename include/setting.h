@@ -5,7 +5,7 @@
 // 声明变量
 typedef struct setting setting_t;
 struct sockaddr_in;
-struct dns_addr{
+struct my_dns_addr{
     unsigned short family;
     union 
     {
@@ -43,25 +43,33 @@ int get_debug_level();
 /**
  * @brief 获得DNS服务器地址
  * 
+ * @return struct dns_addr DNS服务器地址
  */
-struct dns_addr *get_dns_server();
+struct my_dns_addr get_dns_server();
 
 /**
  * @brief 获得DNS服务器地址(字符串)
  * 
+ * @return char* DNS服务器地址
  */
 char *get_dns_server_ip();
 /**
  * @brief 获得用户自定义的文件
  * 
+ * @return char* 用户自定义的HOST文件
  */
 char *get_user_file();
 
 /**
  * @brief 获得日志文件名称
  * 
+ * @return char* 日志文件名称
  */
 char *get_log_file();
 
-
+/**
+ * @brief 获取DNS类型
+ * @return int AF_INET 或者 AF_INET6
+ */
+int get_dns_type();
 #endif

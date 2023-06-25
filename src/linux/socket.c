@@ -10,9 +10,9 @@
 #include "taskworker.h"
 #include "linked_list.h"
 // 定义变量
-int sock;
-struct sockaddr_in any_in_adr, dns_addr;
-char dns_server[16];
+static int sock;
+static struct sockaddr_in any_in_adr, dns_addr4;
+static char dns_server[16];
 // 任务池
 extern struct linked_list_unit task_pool;
 

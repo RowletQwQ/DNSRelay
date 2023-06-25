@@ -51,6 +51,7 @@ int main(){
     // pthread_join(thread_listen, NULL);
     // pthread_join(thread_manager, NULL);
     thpool_wait(pool);
+    sleep(5);
     thpool_destroy(pool);
     return 0;
 }
