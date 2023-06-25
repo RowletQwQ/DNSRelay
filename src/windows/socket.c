@@ -65,11 +65,10 @@ void socket_req_listen(){
     printf("socket_req_listen\n");
     // 循环监听
     while (1) {
+
         struct sockaddr addr_recv;
         int addr_recv_len = sizeof(addr_recv);
-        
         int ret = recvfrom(sock, recv_message, DNS_MAX_LENGTH, 0,(struct sockaddr *) &addr_recv, &addr_recv_len);
-        
         if (ret == -1) {
             // 写日志
             continue;
@@ -78,7 +77,7 @@ void socket_req_listen(){
         } else {
             // 复制
             struct task task_;
-
+            
             task_.sock_len = addr_recv_len;
             task_.addr = (char *)malloc(addr_recv_len);
             
@@ -90,18 +89,8 @@ void socket_req_listen(){
             task_.m_len = ret;
             task_.message = message;
             
-            for (int i = 0; i < ret; i++) {
-                printf("%02x ", task_.message[i]);
-            }
-            printf("\n");
-            
             printf("recvfrom() success\n");
-
-            printf("task_.m_len = %d\n",task_.m_len);
-            
             linked_list_insert_tail(task_pool,(int8 *) &task_,sizeof(struct task));
-            
-            printf("linked_list_insert_tail\n");
 
         }
 
@@ -130,14 +119,9 @@ int udp_send(int sockfd, const void *buf, int len, const struct sockaddr *dest_a
 }
 
 int send_to_client(char *message,int len,struct sockaddr *src_addr, int addrlen){
-
-
     //打印src_addr对应的地址
     struct sockaddr_in *src_addr_in = (struct sockaddr_in *)src_addr;
     char *src_ip = inet_ntoa(src_addr_in->sin_addr);
-    printf("src_ip = %s\n",src_ip);
-    printf("src_port = %d\n",src_addr_in->sin_port);
-
 
     SOCKET send_sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     
@@ -158,10 +142,70 @@ int send_to_client(char *message,int len,struct sockaddr *src_addr, int addrlen)
 
     int send_size =  sendto(sock, message, len, 0, src_addr, addrlen);
     
+    
+    // 写入文件
+    
+    FILE *fp = fopen("dns.txt", "wb");
+    fwrite(message, 1, len, fp);
+    fclose(fp);
+
+    // 依次打印出来
+    for (int i = 0; i < len; i++) {
+        printf("%02x ", message[i]);
+    }
+    
     if (send_size == SOCKET_ERROR) {
         // write_log(LOG_LEVEL_ERROR,"send failed\n");
         // 发送失败
         printf("fail to send");
     }
     return send_size;
+}
+
+int talk_to_dns(char *message,int len){
+    // 绑定新端口
+    SOCKET send_sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    // 绑定到本地地址
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_ANY); // 绑定到本地地址
+    addr.sin_port = 0; // 端口号设置为 0，系统自动分配随机端口
+
+    // 绑定到DNS服务器
+    if(bind(send_sock, (struct sockaddr *)&addr, sizeof(addr)) == SOCKET_ERROR){
+        printf("bind failed: %ld\n", WSAGetLastError());
+        closesocket(send_sock);
+        return -1;
+    }
+    // 依次打印message
+    for (int i = 0; i < len; i++) {
+        printf("%02x ", message[i]);
+    }
+    // 定义dns_addr
+
+    int send_size = sendto(send_sock, message, len, 0, (struct sockaddr *)&dns_addr, sizeof(struct sockaddr));
+    
+    if (send_size == SOCKET_ERROR) {
+        printf("fail to send");
+    }else{
+        printf("send success\n");
+        printf("send_size = %d\n",send_size);
+    }
+    
+    // 设置定时器，超时返回-1
+    struct timeval timeout;
+    timeout.tv_sec = 3;
+    timeout.tv_usec = 0;
+    if (setsockopt(send_sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout)) < 0) {
+        printf("setsockopt failed\n");
+        closesocket(send_sock);
+        return -1;
+    }
+
+    int addr_len;
+    int recv_size = recvfrom(send_sock, message, DNS_MAX_LENGTH, 0, (struct sockaddr *)&dns_addr,&addr_len);   
+    
+    closesocket(send_sock);
+    return recv_size;
 }

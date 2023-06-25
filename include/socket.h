@@ -150,13 +150,15 @@ int tcp_server_listen(int sockfd, int backlog);
 int tcp_server_accept(int sockfd, struct sockaddr *addr, int *addrlen);
 
 /**
- * @brief 扔给DNS服务器获得报文
+ * @brief 扔给DNS服务器获得报文 超时返回 可以有多个DNS服务器
  * 
  * @param message 指向请求报文的指针
  * @param len 报文长度
- * @return int 返回新的报文长度，并且报文已经被修改
+ * 
+ * @return int 返回新的报文长度，并且报文已经被修改 超时返回-1
  */
+int talk_to_dns(char *message,int len);
 
-int throw_to_dns(char *message,int len);
+
 
 #endif

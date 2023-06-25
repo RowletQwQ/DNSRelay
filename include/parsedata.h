@@ -1,7 +1,7 @@
+#include "datatype.h"
 // 解析DNS报文相关
 #ifndef _PARSEDATA_H_
 #define _PARSEDATA_H_
-
 // 宏定义
 #define DNS_OK 0 //无错误
 #define DNS_FORMAT 1 //格式错误
@@ -9,7 +9,12 @@
 #define DNS_NOTEXIST 3 //域名不存在
 #define DNS_QUERY_TYPE_ERROR 4 //查询类型错误
 #define DNS_DEQUERY 5 //拒绝查询
+
+struct task;
+struct req;
+
 // 协议结构
+
 //question 查询部分 长度 不定
 struct dns_question {
     char qname[255];     // 查询域名
@@ -43,7 +48,6 @@ struct dns_answer {
     unsigned short rdlength;  // 数据长度
     unsigned int rdata;    // 数据
 };
-
 /**
  * @brief 将任务数据转换为DNS应答报文
  * @param task_ 处理好的任务
@@ -67,9 +71,44 @@ int parse_to_answer(const struct req* req_,char* answer,const char *message);
  * @param buffer 部分报文内容，待解析区
  * @return int 该查询部分长度
  */
-int parse_to_req(const char *buffer,struct req * req_);
+int parse_to_req(const char *buffer,struct req * req_,const char* message);
 
 int parse_to_reqs(struct task * task_);
 
+/**
+ * @brief 把报文转换成数据条目，更新到缓存和数据库中,并且对于CNAME的rdata中可能存在使用指针的情况，需要解析出来处理
+ * 
+ * @param message 报文数据 
+ * @return int 转换成功的数据量
+ */
+int parse_to_data(const char *answer,struct req * req_,const char * message);
 
+/**
+ * @brief 把网络字符串域名转换成常用字符串域名
+ * 
+ * @param buf 部分报文数据 
+ * @param str 常用字符串域名
+ * @param message 报文数据
+ * @param str_len 转换数据长度,
+ * @return int 转换数据偏移量
+ */
+int parse_to_string(const char * buf,char * str,int16 *str_len,const char * message);
+
+
+/**
+ * @brief 把字符串转换成网络字符串
+ * 
+ * @param astr 部分报文数据 
+ * @param a_len 字符串长度
+ * @param nstr 网络字符串
+ * @return int 网络字符串长度
+ */
+int parse_to_netstr(char * astr,int a_len,char * nstr);
+
+/**
+ * @brief 规格化rdata
+ * @param req_ 单个查询任务请求和响应内容
+ * @return int 
+ */
+int parse_to_rdata(struct req* req_);
 #endif
