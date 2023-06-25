@@ -16,8 +16,9 @@ typedef struct thread_pool_t* thread_pool;
  * @param log_file_name 日志文件名
  * @param flag 日志级别
  * @param std_flag 是否打印到标准输出
+ * @param pool 线程池
  */
-void init_log(const char *log_file_name, int flag,int std_flag);
+void init_log(const char *log_file_name, int flag,int std_flag,thread_pool pool);
 /**
  * @brief 日志打印函数
  * 日志格式为:日志级别 时间 日志内容

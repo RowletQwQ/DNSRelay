@@ -76,11 +76,12 @@ void thpool_resume(thread_pool pool);
 void thpool_destroy(thread_pool pool);
 
 /**
- * @brief 获取线程池中线程的数量
+ * @brief 确认线程池是否已经启动
  * 
  * @param pool 线程池指针
- * @return int 线程池中线程的数量
+ * @return int 0表示未启动,1表示已经启动
  */
-int thpool_get_thread_num(thread_pool pool);
+ 
+int thpool_is_start(thread_pool pool);
 
 #endif

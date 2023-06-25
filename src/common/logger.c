@@ -21,7 +21,7 @@ static int std_status = 0;
 static FILE *log_file = NULL;
 static int log_flag = LOG_LEVEL_ERROR;
 //初始化日志打印,需要在main函数中调用,会开启线程池
-void init_log(const char *log_file_name, int flag,int std_flag){
+void init_log(const char *log_file_name, int flag,int std_flag,thread_pool pool){
     LOG_DEBUG("logger:init log");
     log_file = fopen(log_file_name, "w+");
     if(log_file == NULL){
@@ -31,7 +31,7 @@ void init_log(const char *log_file_name, int flag,int std_flag){
     log_flag = flag;
     std_status = std_flag;
 #ifndef DISABLE_MUTI_THREAD
-    log_thread_pool = thpool_create(1);//创建线程池
+    log_thread_pool = pool;//创建线程池
 #endif
 }
 //日志打印函数,最大长度1024
@@ -76,7 +76,8 @@ void write_log(int level, const char *format, ...){
     }
     //随后将日志字符串传入线程池
 #ifndef DISABLE_MUTI_THREAD
-    if(log_thread_pool != NULL && thpool_get_thread_num(log_thread_pool) > 0){
+    if(log_thread_pool != NULL && thpool_is_start(log_thread_pool)){
+        printf("add work\n");
         thpool_add_work(log_thread_pool, log_worker, (void *)log_str);
     }else{
         log_worker(log_str);

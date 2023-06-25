@@ -120,12 +120,6 @@ thread_pool_t* thpool_create(int thread_num){
     for (int i = 0; i < thread_num; i++) {
         thread_init(&(thread_pool_ptr->threads[i]), thread_pool_ptr, i);
         LOG_DEBUG("thpool_create(): Created thread %d in pool \n", i);
-        /*if (pthread_detach(thread_pool_ptr->threads[i]->thread) != 0) {
-            LOG_ERROR("thpool_create(): Could not detach thread %d\n", i);
-            work_queue_destroy(&thread_pool_ptr->work_queue);
-            thpool_destroy(thread_pool_ptr);
-            return NULL;
-        }*/
     }
 
     // 等待所有线程启动
@@ -202,9 +196,12 @@ void thpool_resume(thread_pool_t *thread_pool_ptr){
     threads_on_hold = 0;
 }
 
-// 获取线程池中的线程数
-int thpool_get_thread_num(thread_pool_t *thread_pool_ptr){
-    return thread_pool_ptr->num_thread_working;
+// 确认线程池是否开启
+int thpool_is_start(thread_pool_t *thread_pool_ptr){
+    if(thread_pool_ptr == NULL){
+        return 0;
+    }
+    return thread_pool_ptr->num_thread_alive == thread_pool_ptr->num_thread_working;
 }
 
 /*=====================线程相关=====================*/

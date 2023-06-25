@@ -18,4 +18,3 @@ thpool_debug: $(PATH_COMMON)linked_list.c $(PATH_HEADERS)linked_list.h  $(PATH_S
 
 clean:
 	rm -f testlogger thpool_debug
-	
