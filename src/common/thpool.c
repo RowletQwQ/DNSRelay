@@ -6,9 +6,7 @@
 #include <errno.h>
 #include <string.h>
 #include <time.h>
-#if defined(__linux__)
 
-#endif
 #include "datatype.h"
 #include "linked_list.h"
 #include "thpool.h"
