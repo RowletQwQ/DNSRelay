@@ -7,15 +7,18 @@
 #define LOG_LEVEL_WARN 2 //警告信息
 #define LOG_LEVEL_ERROR 3 //错误信息
 
-
+//声明
+typedef struct thread_pool_t* thread_pool;
 
 /**
  * @brief 初始化日志打印,需要在main函数中调用,会开启线程池
  * 
  * @param log_file_name 日志文件名
  * @param flag 日志级别
+ * @param std_flag 是否打印到标准输出
+ * @param pool 线程池
  */
-void init_log(const char *log_file_name, int flag);
+void init_log(const char *log_file_name, int flag,int std_flag,thread_pool pool);
 /**
  * @brief 日志打印函数
  * 日志格式为:日志级别 时间 日志内容
@@ -44,7 +47,7 @@ const char* get_time();
  * 
  * @param str 日志字符串
  */
-void log_worker(const char *str);
+void log_worker(void *str);
 
 
 #endif

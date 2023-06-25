@@ -62,7 +62,7 @@ void task_query(struct task * task_);
 /**
  * @brief 监听任务池，有任务则处理 需要多线程处理
  */
-void taskmanager();
+void taskmanager(void * arg);
 
 /**
  * @brief 肩负查询工作，查询缓存和数据库

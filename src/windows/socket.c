@@ -59,7 +59,8 @@ void socket_close(int sock){
     // 隐式释放WSA
 }
 
-void socket_req_listen(){
+void socket_req_listen(void * arg){
+    (void)arg;
     // 报文缓存区
     char recv_message[DNS_MAX_LENGTH] = {0};
     printf("socket_req_listen\n");
@@ -120,11 +121,8 @@ int udp_send(int sockfd, const void *buf, int len, const struct sockaddr *dest_a
 
 int send_to_client(char *message,int len,struct sockaddr *src_addr, int addrlen){
     //打印src_addr对应的地址
-    struct sockaddr_in *src_addr_in = (struct sockaddr_in *)src_addr;
-    char *src_ip = inet_ntoa(src_addr_in->sin_addr);
-
-    SOCKET send_sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     
+    SOCKET send_sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
@@ -134,7 +132,6 @@ int send_to_client(char *message,int len,struct sockaddr *src_addr, int addrlen)
     int ret = bind(send_sock, (struct sockaddr *)&addr, sizeof(addr));
     
     if (ret == SOCKET_ERROR) {
-        printf("bind failed: %ld\n", WSAGetLastError());
         closesocket(send_sock);
         WSACleanup();
         return 1;
@@ -174,7 +171,6 @@ int talk_to_dns(char *message,int len){
 
     // 绑定到DNS服务器
     if(bind(send_sock, (struct sockaddr *)&addr, sizeof(addr)) == SOCKET_ERROR){
-        printf("bind failed: %ld\n", WSAGetLastError());
         closesocket(send_sock);
         return -1;
     }

@@ -30,7 +30,7 @@ int parse_to_req(const char *buffer,struct req * req_,const char* message) {
     return i + 3;
 }
 
-int parse_to_answer(const struct req* req_,char* answer,const char *message){        
+int parse_to_answer(const struct req* req_,char* answer){        
         
         int len = 2;
         // 默认三种是指针方法
@@ -369,7 +369,7 @@ int parse_to_data(const char *answer,struct req * req_,const char * message){
     return len + 10 + rdl;
 }
 
-int parse_to_netstr(char * astr,int a_len,char * nstr){
+int parse_to_netstr(char * astr,char * nstr){
     char * old_nstr = nstr;
     while (*astr != '\0') {
         // 获取域名中的下一个标签（以“.”分隔）

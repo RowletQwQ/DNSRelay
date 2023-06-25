@@ -9,7 +9,8 @@
 extern struct list_ops_unit task_pool;
 extern int task_free_flag;
 // 任务池
-void taskmanager(){
+void taskmanager(void * arg){
+    (void)arg;
     struct linked_list_node * task_node = NULL;
     Sleep(100);
     while(1){
@@ -264,7 +265,7 @@ int update_db(struct task * task_,int offset){
         
     }
 
-
+    return 0;
 }
 
 

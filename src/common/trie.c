@@ -5,6 +5,33 @@
 #include <stdio.h>
 #include <time.h>
 
+// 一些静态函数
+static struct list_ops_unit main_ops_unit;
+
+/**
+ * @brief 将字符转换为字典树节点的索引
+ * 
+ * @param c 字符
+ * @return int32 字典树节点的索引 
+ */
+static int32 trans_char_to_index(int8 c);
+
+/**
+ * @brief 创建一个新的字典树节点
+ * 
+ * @return struct trie_node* 返回新的字典树节点
+ */
+static struct trie_node *new_trie_node();
+
+/**
+ * @brief 计算字典树中节点的数量
+ * 
+ * @param root 字典树节点
+ * @return int32 返回总数量
+ */
+static int32 cache_num(struct trie_node *root);
+
+
 static int32 trans_char_to_index(int8 c) {
     if (c >= 'a' && c <= 'z') {
         return c - 'a';
@@ -26,8 +53,7 @@ static struct trie_node *new_trie_node() {
     struct trie_node *node = (struct trie_node *)malloc(sizeof(struct trie_node));
     memset(node->next, 0, sizeof(node->next));
     node->through_cnt = 0;
-    node->ip_info = NULL;
-    node->list_node = NULL;
+    node->ops_unit = NULL;
     return node;
 }
 
@@ -47,33 +73,25 @@ struct trie_node *trie_create() {
     struct trie_node *root = (struct trie_node *)malloc(sizeof(struct trie_node));
     memset(root->next, 0, sizeof(root->next));
     root->through_cnt = 0;
-    root->ip_info = NULL;
-    root->list_node = NULL;
-
-    ops_unit = linked_list_create(); // 链表操作单元
+    root->ops_unit = NULL;
+    main_ops_unit = linked_list_create(); // 链表操作单元
     return root;
 }
 
-// 2.插入字符串(key为域名, value为ip地址), 返回值: 1-成功, 0-失败
-int32 trie_insert(struct trie_node *root, int8 *key_domin_name, uint16 ip_type, uint8 ip[16], int32 ttl) {
+// 2.插入域名记录信息, 返回值: 1-成功, 0-失败
+int32 trie_insert(struct trie_node *root, int8 *key_domin_name, uint16 record_type, byte record[256], int32 ttl) {
+    int8 *domin_name = key_domin_name;
+    
     // 如果缓存数量已经达到上限, 就需要先删除链表中最后一个节点
     if (cache_num(root) == MAX_CACHE_SIZE) {
-        struct linked_list_node *last_node = linked_list_get_tail(ops_unit);
-        if (last_node == NULL) {
-            return 0;
-        }
-        if (sizeof(struct put_list_data) != last_node->data_len) {
-            return 0;
-        }
-        struct put_list_data *put_list_data = (struct put_list_data *)last_node->data;
-        if (put_list_data == NULL) {
-            return 0;
-        }
-        if (trie_delete(root, put_list_data->domin_name) == 0) {
-            return 0;
+        linked_list_node *last = linked_list_delete_tail(main_ops_unit);
+        if (sizeof(struct record_info) == last->data_len) {
+            struct record_info *record_info = (struct record_info *)last->data;
+            trie_delete(root, record_info->domin_name, record_info->record_type);
+        } else {
+            return FAIL;
         }
     }
-
 
     struct trie_node *cur = root;
     // 遍历域名
@@ -86,38 +104,48 @@ int32 trie_insert(struct trie_node *root, int8 *key_domin_name, uint16 ip_type, 
         if (cur->next[c_index] != NULL) {
             cur = cur->next[c_index];
             cur->through_cnt++;
+            // key_domin_name指针后移
+            key_domin_name++;
             continue;
         }
         // 否则新建一个字典树节点
         cur->next[c_index] = new_trie_node();
         cur = cur->next[c_index];
-        cur->through_cnt++;  
+        cur->through_cnt++; 
 
         // key_domin_name指针后移
         key_domin_name++;
     }
 
-    // 给当前节点添加ip信息 (因为当前节点是字符串的最后一个位置)
-    struct ip_info *ip_info = (struct ip_info *)malloc(sizeof(struct ip_info));
-    ip_info->ip_type = ip_type;
-    memcpy(ip_info->ip, ip, 16);
-    cur->ip_info = ip_info;
+    // 此时cur指向最后一个节点, 此时需要将对应的ip地址信息插入到链表中
+    struct record_info *record_info = (struct record_info *)malloc(sizeof(struct record_info));
+    record_info->record_type = record_type; // 记录类型
+    memcpy(record_info->record, record, sizeof(record)); // 记录数据
+    record_info->expire_time = time(NULL) + ttl; // 过期时间
+    record_info->domin_name = domin_name; // 域名
+    record_info->query_cnt = 0; // 查询次数
 
-    // 添加放入链表的节点指针
-    struct put_list_data *put_list_data = (struct put_list_data *)malloc(sizeof(struct put_list_data));
-    put_list_data->query_cnt = 0; // 查询次数初始化为0
-    put_list_data->domin_name = key_domin_name; 
-    // 计算当前时间 + ttl (单位s) 的时间戳
-    put_list_data->expire_time = time(NULL) + (int64)ttl;
-    linked_list_insert_tail(ops_unit, (int8*)put_list_data, sizeof(struct put_list_data));
-    cur->list_node = linked_list_get_tail(ops_unit);
+    // 插入主链表中, 并得到尾节点
+    linked_list_insert_tail(main_ops_unit, record_info, sizeof(struct record_info));
+    struct linked_list_node *tail = linked_list_get_tail(main_ops_unit);
+     
+    // 如果cur->ops_unit为空, 则新建一个链表操作单元
+    if (cur->ops_unit == NULL) {
+        cur->ops_unit = malloc(sizeof(struct list_ops_unit));
+        *cur->ops_unit = linked_list_create();
+    } 
 
-    return 1;
+    if (linked_list_insert_head(*cur->ops_unit, tail, sizeof(struct linked_list_node)) == FAIL) {
+        return FAIL;
+    }
+
+    return SUCCESS;
 }
 
 // 3.删除一个对应域名, 返回值: 1-成功, 0-失败
-int32 trie_delete(struct trie_node *root, int8 *key_domin_name) {
+int32 trie_delete(struct trie_node *root, int8 *key_domin_name, uint16 record_type) {
     struct trie_node *cur = root;
+    struct trie_node *pre = root;
     // 遍历域名
     while (*key_domin_name != '\0') {
         int8 c = *key_domin_name;
@@ -128,19 +156,47 @@ int32 trie_delete(struct trie_node *root, int8 *key_domin_name) {
         if (cur->next[index] == NULL) {
             return 0;
         }
+
         cur = cur->next[index];
         if (--cur->through_cnt == 0) {
+            pre->next[index] = NULL;
             free_trie_node(cur);
             return 1;
         }
+        pre = cur;
         // key_domin_name指针后移
         key_domin_name++;
     }
+
+    // 然后如果发现没有节点的经过次数变为0, 则说明此时cur下面的指针数组大小是一个以上, 此时需要遍历这个指针数组, 将对应类型删除, 并释放
+    delete_record_list_node(*cur->ops_unit, record_type);
 }
 
-// 4.查找一个域名对应的ip地址, 返回值: ip地址, 为NULL表示查找失败
-struct ip_info *trie_search(struct trie_node *root, int8 *key_domin_name) {
+int32 delete_record_list_node(struct list_ops_unit ops_unit, uint16 record_type) {
+    struct linked_list_node *cur = ops_unit.head;
+    while (cur != NULL && cur != ops_unit.tail) {
+        if (cur->data_len != sizeof(struct linked_list_node)) {
+            cur = cur->next;
+            continue;
+        }
+        struct linked_list_node *node = (struct linked_list_node*)cur->data;
+        struct record_info *record_info = (struct record_info *)node->data;
+        if (record_info->record_type == record_type) {
+            linked_list_delete_node(main_ops_unit, node);
+            linked_list_free_node(node); // 释放链表节点 
+            linked_list_delete_node(ops_unit, cur);
+            free(cur);
+            return SUCCESS;
+        }
+        cur = cur->next;
+    }
+    return FAIL;
+}
+
+// 4.查找一个域名对应的记录数据, 返回值: 记录数据, 为NULL表示查找失败
+struct record_info *trie_search(struct trie_node *root, int8 *key_domin_name, uint16 record_type) {
     struct trie_node *cur = root;
+    int8 *domin_name = key_domin_name;
     // 遍历域名
     while (*key_domin_name != '\0') {
         int8 c = *key_domin_name;
@@ -156,32 +212,40 @@ struct ip_info *trie_search(struct trie_node *root, int8 *key_domin_name) {
         key_domin_name++;
     }
 
-    // 将cur指向的节点的链表节点的查询次数加1
-    if ((int32)sizeof(struct put_list_data) == cur->list_node->data_len) {
-        struct put_list_data *put_list_data = (struct put_list_data *)cur->list_node->data;
-
-        // 如果当前时间已经超过了过期时间, 就将当前节点从字典树中删除, 并返回查询结果为NULL的结果
-        if (time(NULL) >= put_list_data->expire_time) {
-            trie_delete(root, put_list_data->domin_name);
-            return NULL;
+    // 利用cur->ops_unit遍历链表, 找到对应的记录数据
+    struct linked_list_node *cur_node = cur->ops_unit->head;
+    while (cur_node != NULL && cur_node != cur->ops_unit->tail) {
+        if (cur_node->data_len != sizeof(struct linked_list_node)) {
+            cur_node = cur_node->next;
+            continue;
         }
+        struct linked_list_node *node = (struct linked_list_node*)cur_node->data;
+        struct record_info *record_info = (struct record_info *)node->data;
+        if (record_info->record_type == record_type) {
+            // 如果发现这个记录已经过期, 则删除这个记录
+            if (record_info->expire_time <= time(NULL)) {
+                printf("record is expire, delete it\n");
+                printf("domin_name: %s, record_type: %d\n", domin_name, record_type);
+                trie_delete(root, domin_name, record_type);
+                return NULL;
+            }
 
-        put_list_data->query_cnt++;
-        cur->list_node->data = (int8*)put_list_data;
-        // 然后将cur->list_node向前移动
-        while (1) {
-            if (cur->list_node->prev == ops_unit.head) {
-                break;
+            // 当找到这个数据后, 让记录的查询数+1
+            record_info->query_cnt++;
+            // 将node这个节点不断向前移动到查询次数比他大的后面
+            while (node->prev != NULL && node->prev != main_ops_unit.head) {
+                struct linked_list_node *prev_node = node->prev;
+                struct record_info *prev_record_info = (struct record_info *)prev_node->data;
+                if (prev_record_info->query_cnt >= record_info->query_cnt) {
+                    break;
+                }
+                // 交换两个节点的数据
+                linked_list_swap_node(node, prev_node);
+                node = node->prev;
             }
-            struct put_list_data *pre_list_data = (struct pre_list_data *)cur->list_node->prev->data;
-            if (put_list_data->query_cnt <= pre_list_data->query_cnt) {
-                break;
-            }
-            // 交换两个节点的数据
-            linked_list_swap_node(cur->list_node, cur->list_node->prev);
-            cur->list_node = cur->list_node->prev;
+            return record_info;
         }
-        return cur->ip_info;
+        cur_node = cur_node->next;
     }
     return NULL;
 }
@@ -195,13 +259,10 @@ void free_trie_node(struct trie_node *node) {
         free_trie_node(node->next[i]);
     }
 
-    // 删除ip信息
-    if (node->ip_info != NULL) {
-        free(node->ip_info);
+    // 释放链表节点
+    if (node->ops_unit != NULL) {
+        linked_list_free(*node->ops_unit);
     }
-    // 删除链表节点
-    if (node->list_node != NULL) {
-        linked_list_free_node(node->list_node);
-    }
+
     free(node);
 }

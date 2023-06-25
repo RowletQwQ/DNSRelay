@@ -103,7 +103,7 @@ int parse_to_string(const char * buf,char * str,int16 *str_len,const char * mess
  * @param nstr 网络字符串
  * @return int 网络字符串长度
  */
-int parse_to_netstr(char * astr,int a_len,char * nstr);
+int parse_to_netstr(char * astr,char * nstr);
 
 /**
  * @brief 规格化rdata

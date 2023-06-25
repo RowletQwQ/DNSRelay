@@ -44,6 +44,7 @@ build/
 *.idb
 *.pdb
 *.log
+*.txt
 
 # Kernel Module Compile Results
 *.mod*
@@ -56,3 +57,7 @@ dkms.conf
 
 # .vscode
 .vscode/*
+
+# release
+thpool_debug
+userfile_debug

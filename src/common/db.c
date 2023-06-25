@@ -33,6 +33,7 @@ int32 init_db() {
 
 // 2.根据域名查询, 结果为NULL表示查询失败
 struct record_dto *query_by_domin_name(const char *domin_name) {
+
     // 打开数据库
     sqlite3 *db = NULL;
     char *err_msg = NULL;
@@ -106,6 +107,7 @@ struct record_dto *query_by_domin_name(const char *domin_name) {
 
     // 关闭数据库
     sqlite3_close(db);
+    
 
     return dto;
 }
