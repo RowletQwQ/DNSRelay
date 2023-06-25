@@ -4,10 +4,11 @@
 #include <pthread.h>
 #include "logger.h"
 #include "thpool.h"
-
+static int sum = 0;
 void print_int(void* arg) {
     intptr_t n = (intptr_t)arg;
     printf("Thread #%u working on task,number %d\n", (int)pthread_self(),(int)n);
+    sum += (int)n;
 }
 
 int main(int argc, char* argv[]) {
@@ -37,5 +38,6 @@ int main(int argc, char* argv[]) {
     printf("main thread exit\n");
     thpool_wait(log_pool);
     thpool_destroy(log_pool);
+    printf("sum = %d\n", sum);
     return 0;
 }
