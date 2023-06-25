@@ -110,6 +110,12 @@ void linked_list_free_node(struct linked_list_node *node);
  */
 void linked_list_free(struct list_ops_unit ops_unit);
 
-
+/**
+ * @brief 删除一个节点
+ * 
+ * @param ops_unit 双向链表
+ * @param node 节点
+*/
+int32 linked_list_delete_node(struct list_ops_unit ops_unit, struct linked_list_node *node);
 
 #endif 

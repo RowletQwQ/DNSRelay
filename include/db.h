@@ -51,7 +51,7 @@ struct record_dto *query_by_domin_name(const char *domin_name);
 /**
  * @brief 插入一条域名信息, 如果已经存在, 则更新
  * @example
- * insert_domin_info("www.baidu.com", A, "220.181.38.150", 3600);
+ * insert_domin_info("www.baidu.com", A, []uint8{220, 181, 38, 150}, 3600);
  * 
  * @param domin_name 域名
  * @param record_type 记录类型

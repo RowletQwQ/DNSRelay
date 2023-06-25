@@ -1,6 +1,7 @@
 #include "linked_list.h"
 #include <string.h>
 #include <stdlib.h>
+#include <assert.h>
 
 // 1.创建双向链表, 得到包含首部和尾部节点的结构体
 struct list_ops_unit linked_list_create() {
@@ -38,6 +39,7 @@ int32 linked_list_insert_head(struct list_ops_unit ops_unit, int8 *data, int32 d
     node->prev = ops_unit.head;
     ops_unit.head->next->prev = node;
     ops_unit.head->next = node;
+
 
     return 1;
 }
@@ -166,4 +168,23 @@ void linked_list_free(struct list_ops_unit ops_unit) {
 
     linked_list_free_node(ops_unit.head);
     linked_list_free_node(ops_unit.tail);
+}
+
+int32 linked_list_delete_node(struct list_ops_unit ops_unit, struct linked_list_node *node) {
+    if (ops_unit.head == NULL || ops_unit.tail == NULL) {
+        return 0;
+    }
+
+    if (node == NULL) {
+        return 0;
+    }
+
+    if (node == ops_unit.head || node == ops_unit.tail) {
+        return 0;
+    }
+
+    node->prev->next = node->next;
+    node->next->prev = node->prev;
+
+    return 1;
 }
