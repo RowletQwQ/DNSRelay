@@ -30,7 +30,9 @@ void init_log(const char *log_file_name, int flag,int std_flag,thread_pool pool)
     }
     log_flag = flag;
     std_status = std_flag;
-#ifndef DISABLE_MUTI_THREAD
+#ifdef DISABLE_MUTI_THREAD
+    (void)pool;
+#elif
     log_thread_pool = pool;//创建线程池
 #endif
 }

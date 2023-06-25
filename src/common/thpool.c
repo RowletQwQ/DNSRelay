@@ -81,7 +81,10 @@ static inline int thread_detach(thread_t *thread) {
 }
 
 static inline int thread_kill(thread_t *thread, int sig) {
-    (void)(sig);
+    if(sig == SIGUSR1){
+        //将当前线程挂起
+        return SuspendThread(*thread);
+    }
     return TerminateThread(*thread,(DWORD)0);
 }
 #endif
@@ -261,16 +264,29 @@ void thpool_destroy(thread_pool_t *thread_pool_ptr){
 
 // 暂停线程池中的所有线程
 void thpool_pause(thread_pool_t *thread_pool_ptr){
+    LOG_DEBUG("thpool_pause(): pause all threads\n");
     for (int i = 0; i < thread_pool_ptr->num_thread_alive; i++) {
         thread_kill(thread_pool_ptr->threads[i]->thread, SIGUSR1);
     }
+    LOG_DEBUG("thpool_pause(): pause all threads success\n");
 }
 
 // 恢复线程池中的所有线程
 void thpool_resume(thread_pool_t *thread_pool_ptr){
     //TODO 增加单一线程池恢复的支持
-    (void)thread_pool_ptr;
+    LOG_DEBUG("thpool_resume(): resume all threads\n");
     threads_on_hold = 0;
+#if defined(_WIN32) || defined(_WIN64)
+    for(int i = 0; i < thread_pool_ptr->num_thread_alive; i++){
+        ResumeThread(thread_pool_ptr->threads[i]->thread);
+    }
+#elif defined(__linux__)
+    for(int i = 0; i < thread_pool_ptr->num_thread_alive; i++){
+        pthread_kill(thread_pool_ptr->threads[i]->thread, SIGUSR2);
+    }
+    semaphore_post_all(thread_pool_ptr->work_queue.has_jobs);
+#endif
+    LOG_DEBUG("thpool_resume(): resume all threads success\n");
 }
 
 // 确认线程池是否开启
@@ -385,7 +401,7 @@ static DWORD WINAPI thread_do(work_thread_t *thread)
         }
     }
     LOG_DEBUG("thread_do(): Thread %d is exiting\n", thread->id);
-    thread_hold(1);
+    thread_hold(SIGUSR1);
 #if defined(__linux__)
     return NULL;
 #elif defined(_WIN32) || defined(_WIN64)
@@ -404,6 +420,7 @@ static void thread_hold(int sig_id){
     (void)sig_id;
     threads_on_hold = 1;
     while (threads_on_hold) {
+        LOG_DEBUG("thread_hold(): All Thread on hold\n");
         sleep(1);
     }
 }

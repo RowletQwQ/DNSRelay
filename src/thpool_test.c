@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <pthread.h>
 #include "logger.h"
 #include "thpool.h"
@@ -29,6 +30,7 @@ int main(int argc, char* argv[]) {
     for(int i = 0; i < 10000; i++) {
         //printf("add work %d\n", i);
         thpool_add_work(pool, print_int, (void*)(uintptr_t)i);
+    
     }
     //printf("add work done\n");
     thpool_wait(pool);
