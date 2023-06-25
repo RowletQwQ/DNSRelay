@@ -381,9 +381,25 @@ static work_t *work_queue_pull(work_queue_t *work_queue){
     work_t *work_p = NULL;
     pthread_mutex_lock(&work_queue->rwmutex);
     LOG_DEBUG("work_queue_pull(): Queue size: %d\n", work_queue->size);
-    linked_list_node *node = linked_list_delete_head(work_queue->list);
-    work_p = (work_t *)node->data;
-    work_queue->size--;
+    linked_list_node *node = NULL;
+    switch(work_queue->size){
+        case 0:
+            LOG_DEBUG("work_queue_pull(): Queue empty waiting for jobs...\n");
+            break;
+        case 1:
+            LOG_DEBUG("work_queue_pull(): Queue has 1 job\n");
+            node = linked_list_delete_head(work_queue->list);
+            work_queue->size--;
+            work_p = (work_t *)node->data;
+            break;
+        default:
+            LOG_DEBUG("work_queue_pull(): Queue has %d jobs\n", work_queue->size);
+            node = linked_list_delete_head(work_queue->list);
+            work_queue->size--;
+            work_p = (work_t *)node->data;
+            semaphore_post(work_queue->has_jobs);
+            break;
+    }
     pthread_mutex_unlock(&work_queue->rwmutex);
     LOG_DEBUG("work_queue_pull(): Pull Success,Queue size: %d\n", work_queue->size);
     return work_p;
