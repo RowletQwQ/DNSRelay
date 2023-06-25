@@ -26,10 +26,10 @@
 // 记录信息节点
 struct record_info {
     uint16 record_type; // 记录类型
-    byte record[256]; // 记录数据
     int64 expire_time; // 每条记录会对应一个过期时间
     int8 *domin_name; // 对应的域名
     int32 query_cnt; // 该条记录的查询次数
+    byte record[256]; // 记录数据
 };
 
 // 字典树节点
@@ -41,36 +41,10 @@ struct trie_node {
 };
 
 
-// 一些静态函数
-static struct list_ops_unit main_ops_unit;
-
-/**
- * @brief 将字符转换为字典树节点的索引
- * 
- * @param c 字符
- * @return int32 字典树节点的索引 
- */
-static int32 trans_char_to_index(int8 c);
-
-/**
- * @brief 创建一个新的字典树节点
- * 
- * @return struct trie_node* 返回新的字典树节点
- */
-static struct trie_node *new_trie_node();
-
-/**
- * @brief 计算字典树中节点的数量
- * 
- * @param root 字典树节点
- * @return int32 返回总数量
- */
-static int32 cache_num(struct trie_node *root);
 
 /*
     字典树相关操作
 */
-
 
 /**
  * @brief 创建字典树

@@ -5,6 +5,33 @@
 #include <stdio.h>
 #include <time.h>
 
+// 一些静态函数
+static struct list_ops_unit main_ops_unit;
+
+/**
+ * @brief 将字符转换为字典树节点的索引
+ * 
+ * @param c 字符
+ * @return int32 字典树节点的索引 
+ */
+static int32 trans_char_to_index(int8 c);
+
+/**
+ * @brief 创建一个新的字典树节点
+ * 
+ * @return struct trie_node* 返回新的字典树节点
+ */
+static struct trie_node *new_trie_node();
+
+/**
+ * @brief 计算字典树中节点的数量
+ * 
+ * @param root 字典树节点
+ * @return int32 返回总数量
+ */
+static int32 cache_num(struct trie_node *root);
+
+
 static int32 trans_char_to_index(int8 c) {
     if (c >= 'a' && c <= 'z') {
         return c - 'a';
