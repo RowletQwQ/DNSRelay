@@ -60,3 +60,4 @@ dkms.conf
 
 # release
 thpool_debug
+userfile_debug

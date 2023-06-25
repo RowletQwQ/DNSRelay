@@ -74,7 +74,7 @@ void write_log(int level, const char *format, ...){
             break;
     }
     if(std_status == 1){
-        printf("%s", log_str);
+        printf("%s\n", log_str);
     }
     //随后将日志字符串传入线程池
 #ifndef DISABLE_MUTI_THREAD
@@ -106,7 +106,7 @@ const char* get_time(){
 
 void log_worker(void *str){
     assert(log_file != NULL);
-    fprintf(log_file, "%s", (char*)str);
+    fprintf(log_file, "%s\n", (char*)str);
     fflush(log_file);
     free((void *)str);
 }
