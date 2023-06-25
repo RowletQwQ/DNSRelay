@@ -2,7 +2,7 @@
 #ifndef THPOOL_H
 #define THPOOL_H
 
-#define THPOOL_SUCESS 0
+#define THPOOL_SUCCESS 0
 #define THPOOL_FAIL -1
 
 typedef struct thread_pool_t* thread_pool;
@@ -42,7 +42,7 @@ thread_pool thpool_create(int thread_num);
  * @param arg 任务函数的参数
  * @return int 0表示成功,其他表示失败
  */
-int thpool_add_work(thread_pool pool, void *(*func)(void *), void *arg);
+int thpool_add_work(thread_pool pool, void (*func)(void *), void *arg);
 
 /**
  * @brief 等待线程池中所有任务结束
@@ -76,11 +76,12 @@ void thpool_resume(thread_pool pool);
 void thpool_destroy(thread_pool pool);
 
 /**
- * @brief 获取线程池中线程的数量
+ * @brief 确认线程池是否已经启动
  * 
  * @param pool 线程池指针
- * @return int 线程池中线程的数量
+ * @return int 0表示未启动,1表示已经启动
  */
-int thpool_get_thread_num(thread_pool pool);
+ 
+int thpool_is_start(thread_pool pool);
 
 #endif

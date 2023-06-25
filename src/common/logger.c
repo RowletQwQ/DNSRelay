@@ -1,32 +1,37 @@
 #include "logger.h"
 
-#ifndef DISABLE_MUTI_THREAD
-#include "thpool.h"
-static int thread_pool_size = 0;
-static int thread_pool_alive = 0;
-static thread_pool log_thread_pool = NULL;
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
 #include <time.h>
 #include <assert.h>
+#include <stddef.h>
 
+#ifndef DISABLE_MUTI_THREAD
+#include "thpool.h"
+static thread_pool log_thread_pool = NULL;
+#endif
 
+#ifndef _WIN32
+
+#endif
+
+static int std_status = 0;   
 static FILE *log_file = NULL;
 static int log_flag = LOG_LEVEL_ERROR;
 //初始化日志打印,需要在main函数中调用,会开启线程池
-void init_log(const char *log_file_name, int flag){
-    log_file = fopen(log_file_name, "a+");
+void init_log(const char *log_file_name, int flag,int std_flag,thread_pool pool){
+    LOG_DEBUG("logger:init log");
+    log_file = fopen(log_file_name, "w+");
     if(log_file == NULL){
         LOG_ERROR("logger:open log file failed");
         exit(1);
     }
     log_flag = flag;
+    std_status = std_flag;
 #ifndef DISABLE_MUTI_THREAD
-    log_thread_pool = thpool_create(1);//创建线程池
+    log_thread_pool = pool;//创建线程池
 #endif
 }
 //日志打印函数,最大长度1024
@@ -66,10 +71,17 @@ void write_log(int level, const char *format, ...){
         default:
             break;
     }
-    printf("%s\n", log_str);
+    if(std_status == 1){
+        printf("%s", log_str);
+    }
     //随后将日志字符串传入线程池
 #ifndef DISABLE_MUTI_THREAD
-    thpool_add_work(log_thread_pool, (void *)log_worker, (void *)log_str);
+    if(log_thread_pool != NULL && thpool_is_start(log_thread_pool)){
+        printf("add work\n");
+        thpool_add_work(log_thread_pool, log_worker, (void *)log_str);
+    }else{
+        log_worker(log_str);
+    }
 #else
     log_worker(log_str);
 #endif
@@ -79,19 +91,20 @@ const char* get_time(){
     time_t now;
     time(&now);
     struct tm *local = localtime(&now);
-    char *time_str = (char *)malloc(sizeof(char) * 20);
+    char *time_str = (char *)malloc(sizeof(char) * 100);
     if(time_str == NULL){
         printf("logger:malloc failed\n");
         exit(1);
     }
-    sprintf(time_str, "%d-%d-%d %02d:%02d:%02d", local->tm_year + 1900, local->tm_mon + 1, local->tm_mday,
+    memset(time_str, 0, sizeof(char) * 100);
+    sprintf(time_str, "%d-%02d-%02d %02d:%02d:%02d", local->tm_year + 1900, local->tm_mon + 1, local->tm_mday,
         local->tm_hour, local->tm_min, local->tm_sec);
     return time_str;
 }
 
-void log_worker(const char *str){
+void log_worker(void *str){
     assert(log_file != NULL);
-    fprintf(log_file, "%s\n", str);
+    fprintf(log_file, "%s", (char*)str);
     fflush(log_file);
     free((void *)str);
 }

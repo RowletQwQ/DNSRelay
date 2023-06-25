@@ -13,7 +13,7 @@ struct list_ops_unit {
     struct linked_list_node *head;
     struct linked_list_node *tail;
 };
-
+typedef struct list_ops_unit list_ops_unit_t;
 // 双向链表节点
 struct linked_list_node {
     struct linked_list_node *prev; // 指向前一个节点的指针
