@@ -13,9 +13,7 @@
 static thread_pool log_thread_pool = NULL;
 #endif
 
-#ifndef _WIN32
 
-#endif
 
 static int std_status = 0;   
 static FILE *log_file = NULL;
@@ -32,7 +30,7 @@ void init_log(const char *log_file_name, int flag,int std_flag,thread_pool pool)
     std_status = std_flag;
 #ifdef DISABLE_MUTI_THREAD
     (void)pool;
-#elif
+#else
     log_thread_pool = pool;//创建线程池
 #endif
 }

@@ -20,39 +20,6 @@
 
 struct sockaddr;
 
-// //IPv4地址结构
-// struct in_addr{
-//     uint32 s_addr; //IP地址,网络字节序
-// };
-
-// //IPv6地址结构
-// struct in6_addr{
-//     uint8 s6_addr[16]; //IP地址,网络字节序
-// };
-
-// //sockaddr结构体，用于存储地址信息,可以用memcpy直接拷贝
-// struct sockaddr{
-//     uint16 sa_family; //地址族
-//     char sa_data[14]; //14字节协议地址，包含该套接字的IP地址和端口号
-// };
-
-// //IPv4 sock地址结构
-// struct sockaddr_in{
-//     uint16 sin_family; //地址族类型,必须为AF_INET,表示IPv4地址
-//     uint16 sin_port; //端口号,必须为网络字节序
-//     struct in_addr sin_addr; //IP地址
-//     byte sin_zero[8]; //填充0以保持与sockaddr结构的长度相同
-// };
-
-// //IPv6 sock地址结构
-// struct sockaddr_in6{
-//     uint16 sin6_family; //地址族类型,必须为AF_INET6,表示IPv6地址
-//     uint16 sin6_port; //端口号,必须为网络字节序
-//     uint32 sin6_flowinfo; //流标识
-//     struct in6_addr sin6_addr; //IP地址
-//     uint32 sin6_scope_id; //范围ID
-// };
-
 // socket初始化
 
 /**

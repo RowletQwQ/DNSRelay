@@ -79,7 +79,7 @@ struct trie_node *trie_create() {
 }
 
 // 2.插入域名记录信息, 返回值: 1-成功, 0-失败
-int32 trie_insert(struct trie_node *root, int8 *key_domin_name, uint16 record_type, byte record[256], int32 ttl) {
+int32 trie_insert(struct trie_node *root, int8 *key_domin_name, uint16 record_type, byte record[256], int16 record_len, int32 ttl) {
     int8 *domin_name = key_domin_name;
     
     // 如果缓存数量已经达到上限, 就需要先删除链表中最后一个节点
@@ -120,13 +120,14 @@ int32 trie_insert(struct trie_node *root, int8 *key_domin_name, uint16 record_ty
     // 此时cur指向最后一个节点, 此时需要将对应的ip地址信息插入到链表中
     struct record_info *record_info = (struct record_info *)malloc(sizeof(struct record_info));
     record_info->record_type = record_type; // 记录类型
-    memcpy(record_info->record, record, sizeof(record)); // 记录数据
+    record_info->record_len = record_len; // 记录长度
+    memcpy(record_info->record, record, 256); // 记录数据
     record_info->expire_time = time(NULL) + ttl; // 过期时间
     record_info->domin_name = domin_name; // 域名
     record_info->query_cnt = 0; // 查询次数
 
     // 插入主链表中, 并得到尾节点
-    linked_list_insert_tail(main_ops_unit, record_info, sizeof(struct record_info));
+    linked_list_insert_tail(main_ops_unit, (int8 *)record_info, sizeof(struct record_info));
     struct linked_list_node *tail = linked_list_get_tail(main_ops_unit);
      
     // 如果cur->ops_unit为空, 则新建一个链表操作单元
@@ -135,7 +136,7 @@ int32 trie_insert(struct trie_node *root, int8 *key_domin_name, uint16 record_ty
         *cur->ops_unit = linked_list_create();
     } 
 
-    if (linked_list_insert_head(*cur->ops_unit, tail, sizeof(struct linked_list_node)) == FAIL) {
+    if (linked_list_insert_head(*cur->ops_unit, (int8 *)tail, sizeof(struct linked_list_node)) == FAIL) {
         return FAIL;
     }
 

@@ -62,7 +62,7 @@ void parse_to_dnsres(struct task * task_);
  * @param message 报文数据
  * @return answer部分长度
  */
-int parse_to_answer(const struct req* req_,char* answer,const char *message);
+int parse_to_answer(const struct req* req_,char* answer);
 
 /**
  * @brief 读取报文中的查询部分，填充到req_中
