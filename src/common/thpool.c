@@ -1,28 +1,101 @@
+// 尝试维护一份两个系统都能使用的thpool.c
 #include <stdlib.h>
 #include <stdio.h>
-#include <pthread.h>
 #include <unistd.h>
 #include <signal.h>
 #include <errno.h>
 #include <string.h>
 #include <time.h>
 #if defined(__linux__)
-#include <sys/prctl.h>
+
 #endif
 #include "datatype.h"
 #include "linked_list.h"
 #include "thpool.h"
 #include "logger.h"
 
+#if defined(__linux__)
+#include <pthread.h>
+#include <sys/prctl.h>
+//给Linux下的线程相关的函数/变量起别名
+typedef pthread_mutex_t mutex_t;
+typedef pthread_cond_t cond_t;
+typedef pthread_t thread_t;
+
+#define mutex_init pthread_mutex_init
+#define mutex_destroy pthread_mutex_destroy
+
+#define cond_init pthread_cond_init
+#define cond_wait pthread_cond_wait
+#define cond_signal pthread_cond_signal
+#define cond_broadcast pthread_cond_broadcast
+
+#define mutex_lock pthread_mutex_lock
+#define mutex_unlock pthread_mutex_unlock
+
+#define thread_create pthread_create
+#define thread_join pthread_join
+#define thread_detach pthread_detach
+#define thread_kill pthread_kill
+
+#endif
+#if defined(_WIN32) || defined(_WIN64)
+#define SIGUSR1 10
+#include <windows.h>
+
+typedef CRITICAL_SECTION mutex_t;
+typedef CONDITION_VARIABLE cond_t;
+typedef HANDLE thread_t;
+
+static inline int mutex_init(mutex_t *mutex, void *attr) {
+    (void)(attr);
+    InitializeCriticalSection(mutex);
+    return 0;
+}
+static inline int mutex_destroy(mutex_t *mutex, void *attr) {
+    (void)(attr);
+    DeleteCriticalSection(mutex);
+    return 0;
+}
+
+static inline int cond_init(cond_t *cond, void *attr) {
+    (void)(attr);
+    InitializeConditionVariable(cond);
+    return 0;
+}
+#define cond_wait(cond, mutex) SleepConditionVariableCS(cond, mutex, INFINITE)
+#define cond_signal WakeConditionVariable
+#define cond_broadcast WakeAllConditionVariable
+
+#define mutex_lock EnterCriticalSection
+#define mutex_unlock LeaveCriticalSection
+
+#define thread_create(th, attr, fn, arg) \
+    CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)(fn), (LPVOID)(arg), 0, NULL)
+static inline int thread_join(thread_t *thread, void **value) {
+    (void)(value);
+    WaitForSingleObject(*thread, INFINITE);
+    return GetExitCodeThread(*(thread), (LPDWORD)(value));
+}
+
+static inline int thread_detach(thread_t *thread) {
+    return CloseHandle(*thread);
+}
+
+static inline int thread_kill(thread_t *thread, int sig) {
+    (void)(sig);
+    return TerminateThread(*thread,(DWORD)0);
+}
+#endif
 
 //Linux下的线程池实现
-static volatile int threads_keepalive;// 线程池中线程的最长空闲时间
-static volatile int threads_on_hold;// 线程池中线程的数量
+static volatile int threads_keepalive;// 线程池中线程是否存活
+static volatile int threads_on_hold;// 线程池中线程是否挂起
 /*============================== 结构体 =============================*/
 /* 信号量 */
 typedef struct semaphore {
-    pthread_mutex_t mutex;// 互斥锁,实现二元信号量的互斥访问
-    pthread_cond_t cond;// 条件变量,实现二元信号量的等待和唤醒操作
+    mutex_t mutex;// 互斥锁,实现二元信号量的互斥访问
+    cond_t cond;// 条件变量,实现二元信号量的等待和唤醒操作
     int v;// 整数变量,表示当前信号量的值
 } semaphore_t;
 
@@ -35,7 +108,7 @@ typedef struct work {
 /* 工作队列,基于双向链表实现 */
 
 typedef struct work_queue {
-    pthread_mutex_t rwmutex; // 读写锁
+    mutex_t rwmutex; // 读写锁
     list_ops_unit_t list; // 双向链表
     semaphore_t *has_jobs; // 信号量
     int size; // 队列中任务的数量
@@ -45,25 +118,31 @@ typedef struct thread_pool_t thread_pool_t;
 /* 工作线程 */
 typedef struct work_thread {
     int id; // 线程id
-    pthread_t thread; // 线程
+    thread_t thread; // 线程
     thread_pool_t* thread_pool_ptr; // 对应的线程池
-} thread_t;
+} work_thread_t;
 /* 线程池 */
 typedef struct thread_pool_t {
-    thread_t** threads; // 线程池中线程的数组
+    work_thread_t** threads; // 线程池中线程的数组
     int num_thread_alive; // 线程池中存活的线程数量
     int num_thread_working; // 线程池中正在工作的线程数量
-    pthread_mutex_t thcount_lock; // 互斥锁,在线程技术等时候使用
-    pthread_cond_t threads_all_idle; // 条件变量,thpool_wait()函数中使用
+    mutex_t thcount_lock; // 互斥锁,在线程技术等时候使用
+    cond_t threads_all_idle; // 条件变量,thpool_wait()函数中使用
     work_queue_t work_queue; // 工作队列
 } thread_pool_t;
 
 /*====================内部函数原型====================*/
 
-static int thread_init(thread_t **thread_ptr, thread_pool_t * thread_pool_ptr, int id);
-static void *thread_do(thread_t *thread);
+static int thread_init(work_thread_t **thread_ptr, thread_pool_t * thread_pool_ptr, int id);
+
+#if defined(__linux__)
+static void *thread_do(work_thread_t *thread);
+#elif defined(_WIN32) || defined(_WIN64)
+static DWORD WINAPI thread_do(work_thread_t *thread);
+#endif
+
 static void thread_hold(int sig_id);
-static void thread_destroy(thread_t *thread);
+static void thread_destroy(work_thread_t *thread);
 
 static int work_queue_init(work_queue_t *work_queue);
 static void work_queue_clear(work_queue_t *work_queue);
@@ -84,7 +163,7 @@ static void semaphore_post_all(semaphore_t *semaphore);
 thread_pool_t* thpool_create(int thread_num){
     threads_on_hold = 0;
     threads_keepalive = 1;
-
+    
     if (thread_num < 0) {
         thread_num = 0;
     }
@@ -105,7 +184,7 @@ thread_pool_t* thpool_create(int thread_num){
     }
 
     // 初始化池中的线程
-    thread_pool_ptr->threads = (thread_t **)malloc(sizeof(thread_t *) * thread_num);
+    thread_pool_ptr->threads = (work_thread_t **)malloc(sizeof(work_thread_t *) * thread_num);
     if (thread_pool_ptr->threads == NULL) {
         LOG_ERROR("thpool_create(): Could not allocate memory for threads\n");
         work_queue_destroy(&thread_pool_ptr->work_queue);
@@ -113,8 +192,8 @@ thread_pool_t* thpool_create(int thread_num){
         return NULL;
     }
 
-    pthread_mutex_init(&(thread_pool_ptr->thcount_lock), NULL);
-    pthread_cond_init(&(thread_pool_ptr->threads_all_idle), NULL);
+    mutex_init(&(thread_pool_ptr->thcount_lock), NULL);
+    cond_init(&(thread_pool_ptr->threads_all_idle), NULL);
 
     // 线程初始化
     for (int i = 0; i < thread_num; i++) {
@@ -147,11 +226,11 @@ int thpool_add_work(thread_pool_t *thread_pool_ptr, void (*func)(void *), void *
 // 等待线程池中的所有线程完成任务
 void thpool_wait(thread_pool_t *thread_pool_ptr){
     LOG_DEBUG("thpool_wait(): wait for all threads to finish\n");
-    pthread_mutex_lock(&thread_pool_ptr->thcount_lock);
+    mutex_lock(&thread_pool_ptr->thcount_lock);
     while (thread_pool_ptr->work_queue.size || thread_pool_ptr->num_thread_working) {
-        pthread_cond_wait(&thread_pool_ptr->threads_all_idle, &thread_pool_ptr->thcount_lock);
+        cond_wait(&thread_pool_ptr->threads_all_idle, &thread_pool_ptr->thcount_lock);
     }
-    pthread_mutex_unlock(&thread_pool_ptr->thcount_lock);
+    mutex_unlock(&thread_pool_ptr->thcount_lock);
     LOG_DEBUG("thpool_wait(): all threads finish\n");
 }
 
@@ -168,7 +247,7 @@ void thpool_destroy(thread_pool_t *thread_pool_ptr){
     // 唤醒所有线程
     semaphore_post_all(thread_pool_ptr->work_queue.has_jobs);
     for (int i = 0; i < threads_total; i++) {
-        pthread_join(thread_pool_ptr->threads[i]->thread, NULL);
+        thread_join(thread_pool_ptr->threads[i]->thread, NULL);
     }
 
     // 清除工作队列
@@ -185,7 +264,7 @@ void thpool_destroy(thread_pool_t *thread_pool_ptr){
 // 暂停线程池中的所有线程
 void thpool_pause(thread_pool_t *thread_pool_ptr){
     for (int i = 0; i < thread_pool_ptr->num_thread_alive; i++) {
-        pthread_kill(thread_pool_ptr->threads[i]->thread, SIGUSR1);
+        thread_kill(thread_pool_ptr->threads[i]->thread, SIGUSR1);
     }
 }
 
@@ -214,8 +293,8 @@ int thpool_is_start(thread_pool_t *thread_pool_ptr){
  * @param id 线程id
  * @return int 成功返回THPOOL_SUCCESS,失败返回THPOOL_FAIL
  */
-static int thread_init(thread_t **thread_ptr, thread_pool_t *thread_pool_ptr, int id){
-    *thread_ptr = (thread_t *)malloc(sizeof(thread_t));
+static int thread_init(work_thread_t **thread_ptr, thread_pool_t *thread_pool_ptr, int id){
+    *thread_ptr = (work_thread_t *)malloc(sizeof(work_thread_t));
     if (*thread_ptr == NULL) {
         LOG_ERROR("thread_init(): Could not allocate memory for thread\n");
         return THPOOL_FAIL;
@@ -223,12 +302,16 @@ static int thread_init(thread_t **thread_ptr, thread_pool_t *thread_pool_ptr, in
     LOG_DEBUG("thread_init(): Allocated memory for thread %d\n", id);
     (*thread_ptr)->thread_pool_ptr = thread_pool_ptr;
     (*thread_ptr)->id = id;
-
-    pthread_create(&(*thread_ptr)->thread, NULL, (void * (*)(void *))thread_do, (*thread_ptr));
-    pthread_detach((*thread_ptr)->thread);
+#if defined(__linux__)
+    thread_create(&(*thread_ptr)->thread, NULL, (void * (*)(void *))thread_do, (*thread_ptr));
+#elif defined(_WIN32) || defined(_WIN64)
+    thread_create(&(*thread_ptr)->thread, NULL, (DWORD (*)(void *))thread_do, (*thread_ptr));
+#endif
+    thread_detach((*thread_ptr)->thread);
     LOG_DEBUG("thread_init(): Created thread %d in pool \n", id);
     return THPOOL_SUCCESS;
 }
+
 
 /**
  * @brief 线程执行函数
@@ -237,9 +320,14 @@ static int thread_init(thread_t **thread_ptr, thread_pool_t *thread_pool_ptr, in
  * 如果没有新任务到来，则线程将会阻塞等待。
  * 
  * @param thread 需要执行函数的线程
- * @return void* 也许需要返回啥，暂时不知道
+ * @return void * 或 DWORD WINAPI 操作系统相关的返回值类型
  */
-static void *thread_do(thread_t *thread){
+#if defined(__linux__)
+static void *thread_do(work_thread_t *thread)
+#elif defined(_WIN32) || defined(_WIN64)
+static DWORD WINAPI thread_do(work_thread_t *thread)
+#endif
+{
     // 线程初始化
     // 设置线程名称
     char thread_name[128] = {0};
@@ -250,6 +338,8 @@ static void *thread_do(thread_t *thread){
     pthread_setname_np(thread_name);
 #endif
     thread_pool_t *thread_pool_ptr = thread->thread_pool_ptr;
+    
+#if defined(__linux__)
     /* 注册信号 */
     struct sigaction act;
     act.sa_handler = thread_hold;
@@ -258,19 +348,20 @@ static void *thread_do(thread_t *thread){
     if (sigaction(SIGUSR1, &act, NULL) == -1) {
         LOG_ERROR("thread_do(): Cannot handle SIGUSR1\n");
     }
+#endif
     // 将线程标记为活跃
-    pthread_mutex_lock(&thread_pool_ptr->thcount_lock);
+    mutex_lock(&thread_pool_ptr->thcount_lock);
     thread_pool_ptr->num_thread_alive++;
-    pthread_mutex_unlock(&thread_pool_ptr->thcount_lock);
+    mutex_unlock(&thread_pool_ptr->thcount_lock);
     // 线程主循环
     while (threads_keepalive) {
         semaphore_wait(thread->thread_pool_ptr->work_queue.has_jobs);
         if (threads_keepalive) {
             LOG_DEBUG("thread_do(): Thread %d woke up\n", thread->id);
             // 线程池中的线程数加1
-            pthread_mutex_lock(&thread->thread_pool_ptr->thcount_lock);
+            mutex_lock(&thread->thread_pool_ptr->thcount_lock);
             thread->thread_pool_ptr->num_thread_working++;
-            pthread_mutex_unlock(&thread->thread_pool_ptr->thcount_lock);
+            mutex_unlock(&thread->thread_pool_ptr->thcount_lock);
 
             // 从工作队列中取出任务并执行
             void (*func_buff)(void *);
@@ -285,20 +376,25 @@ static void *thread_do(thread_t *thread){
             }
 
             // 线程池中的线程数减1
-            pthread_mutex_lock(&thread->thread_pool_ptr->thcount_lock);
+            mutex_lock(&thread->thread_pool_ptr->thcount_lock);
             thread->thread_pool_ptr->num_thread_working--;
             LOG_DEBUG("thread_do(): Thread %d is going to sleep\n", thread->id);
             if (!thread->thread_pool_ptr->num_thread_working) {
-                pthread_cond_signal(&thread->thread_pool_ptr->threads_all_idle);
+                cond_signal(&thread->thread_pool_ptr->threads_all_idle);
             }
-            pthread_mutex_unlock(&thread->thread_pool_ptr->thcount_lock);
+            mutex_unlock(&thread->thread_pool_ptr->thcount_lock);
             LOG_DEBUG("thread_do(): Thread %d is sleeping\n", thread->id);
         }
     }
     LOG_DEBUG("thread_do(): Thread %d is exiting\n", thread->id);
-    thread_hold(SIGUSR1);
+    thread_hold(1);
+#if defined(__linux__)
     return NULL;
+#elif defined(_WIN32) || defined(_WIN64)
+    return 0;
+#endif
 }
+
 /**
  * @brief 根据信号指示线程进入休眠状态
  * 
@@ -318,7 +414,7 @@ static void thread_hold(int sig_id){
  * 
  * @param thread 需要销毁的线程
  */
-static void thread_destroy(thread_t *thread){
+static void thread_destroy(work_thread_t *thread){
     free(thread);
 }
 
@@ -339,7 +435,7 @@ static int work_queue_init(work_queue_t *work_queue){
         LOG_ERROR("work_queue_init(): Could not allocate memory for semaphore\n");
         return THPOOL_FAIL;
     }
-    pthread_mutex_init(&work_queue->rwmutex, NULL);
+    mutex_init(&work_queue->rwmutex, NULL);
     semaphore_init(work_queue->has_jobs, 0);
     return THPOOL_SUCCESS;
 }
@@ -350,11 +446,11 @@ static int work_queue_init(work_queue_t *work_queue){
  * @param work_queue 需要清空的工作队列
  */
 static void work_queue_clear(work_queue_t *work_queue){
-    pthread_mutex_lock(&work_queue->rwmutex);
+    mutex_lock(&work_queue->rwmutex);
     linked_list_free(work_queue->list);
     work_queue->size = 0;
     semaphore_reset(work_queue->has_jobs);
-    pthread_mutex_unlock(&work_queue->rwmutex);
+    mutex_unlock(&work_queue->rwmutex);
 }
 
 /**
@@ -364,11 +460,11 @@ static void work_queue_clear(work_queue_t *work_queue){
  * @param work 需要添加的任务
  */
 static void work_queue_push(work_queue_t *work_queue, work_t *work){
-    pthread_mutex_lock(&work_queue->rwmutex);
+    mutex_lock(&work_queue->rwmutex);
     linked_list_insert_tail(work_queue->list,(int8*)work,sizeof(work_t));
     work_queue->size++;
     semaphore_post(work_queue->has_jobs);
-    pthread_mutex_unlock(&work_queue->rwmutex);
+    mutex_unlock(&work_queue->rwmutex);
 }
 
 /**
@@ -379,7 +475,7 @@ static void work_queue_push(work_queue_t *work_queue, work_t *work){
  */
 static work_t *work_queue_pull(work_queue_t *work_queue){
     work_t *work_p = NULL;
-    pthread_mutex_lock(&work_queue->rwmutex);
+    mutex_lock(&work_queue->rwmutex);
     LOG_DEBUG("work_queue_pull(): Queue size: %d\n", work_queue->size);
     linked_list_node *node = NULL;
     switch(work_queue->size){
@@ -400,7 +496,7 @@ static work_t *work_queue_pull(work_queue_t *work_queue){
             semaphore_post(work_queue->has_jobs);
             break;
     }
-    pthread_mutex_unlock(&work_queue->rwmutex);
+    mutex_unlock(&work_queue->rwmutex);
     LOG_DEBUG("work_queue_pull(): Pull Success,Queue size: %d\n", work_queue->size);
     return work_p;
 }
@@ -428,8 +524,8 @@ static void semaphore_init(semaphore_t *semaphore, int init_value){
         LOG_ERROR("semaphore_init(): Could not initialize semaphore\n");
         exit(1);
     }
-    pthread_mutex_init(&semaphore->mutex, NULL);
-    pthread_cond_init(&semaphore->cond, NULL);
+    mutex_init(&semaphore->mutex, NULL);
+    cond_init(&semaphore->cond, NULL);
     semaphore->v = init_value;
 }
 
@@ -441,12 +537,12 @@ static void semaphore_init(semaphore_t *semaphore, int init_value){
  */
 static void semaphore_wait(semaphore_t *semaphore){
     LOG_DEBUG("semaphore_wait(): Waiting for semaphore\n");
-    pthread_mutex_lock(&semaphore->mutex);
+    mutex_lock(&semaphore->mutex);
     while (semaphore->v != 1) {
-        pthread_cond_wait(&semaphore->cond, &semaphore->mutex);
+        cond_wait(&semaphore->cond, &semaphore->mutex);
     }
     semaphore->v = 0;
-    pthread_mutex_unlock(&semaphore->mutex);
+    mutex_unlock(&semaphore->mutex);
 }
 
 /**
@@ -455,10 +551,10 @@ static void semaphore_wait(semaphore_t *semaphore){
  * @param semaphore 需要发送的信号量
  */
 static void semaphore_post(semaphore_t *semaphore){
-    pthread_mutex_lock(&semaphore->mutex);
+    mutex_lock(&semaphore->mutex);
     semaphore->v = 1;
-    pthread_cond_signal(&semaphore->cond);
-    pthread_mutex_unlock(&semaphore->mutex);
+    cond_signal(&semaphore->cond);
+    mutex_unlock(&semaphore->mutex);
 }
 
 /**
@@ -476,8 +572,8 @@ static void semaphore_reset(semaphore_t *semaphore){
  * @param semaphore 需要发送的信号量
  */
 static void semaphore_post_all(semaphore_t *semaphore){
-    pthread_mutex_lock(&semaphore->mutex);
+    mutex_lock(&semaphore->mutex);
     semaphore->v = 1;
-    pthread_cond_broadcast(&semaphore->cond);
-    pthread_mutex_unlock(&semaphore->mutex);
+    cond_broadcast(&semaphore->cond);
+    mutex_unlock(&semaphore->mutex);
 }
