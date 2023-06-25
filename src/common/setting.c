@@ -51,7 +51,7 @@ void parse_args(int argc,char *argv[]){
     strcpy(setting.user_file,"dnsrelay.txt");
     strcpy(setting.log_file,"dnsrelay.log");
     // 解析命令行参数
-    while((opt = getopt(argc,argv,"d:s:c:h:l")) != -1){
+    while((opt = getopt(argc,argv,"d:s:c:l:h")) != -1){
         switch(opt){
             case 'd':
                 setting.debug_level = atoi(optarg);
