@@ -17,17 +17,19 @@ static thread_pool log_thread_pool = NULL;
 
 #endif
 
-
+static int std_status = 0;   
 static FILE *log_file = NULL;
 static int log_flag = LOG_LEVEL_ERROR;
 //初始化日志打印,需要在main函数中调用,会开启线程池
-void init_log(const char *log_file_name, int flag){
-    log_file = fopen(log_file_name, "a+");
+void init_log(const char *log_file_name, int flag,int std_flag){
+    LOG_DEBUG("logger:init log");
+    log_file = fopen(log_file_name, "w+");
     if(log_file == NULL){
         LOG_ERROR("logger:open log file failed");
         exit(1);
     }
     log_flag = flag;
+    std_status = std_flag;
 #ifndef DISABLE_MUTI_THREAD
     log_thread_pool = thpool_create(1);//创建线程池
 #endif
@@ -69,10 +71,12 @@ void write_log(int level, const char *format, ...){
         default:
             break;
     }
-    printf("%s\n", log_str);
+    if(std_status == 1){
+        printf("%s", log_str);
+    }
     //随后将日志字符串传入线程池
 #ifndef DISABLE_MUTI_THREAD
-    if(log_thread_pool != NULL){
+    if(log_thread_pool != NULL && thpool_get_thread_num(log_thread_pool) > 0){
         thpool_add_work(log_thread_pool, log_worker, (void *)log_str);
     }else{
         log_worker(log_str);
@@ -99,7 +103,7 @@ const char* get_time(){
 
 void log_worker(void *str){
     assert(log_file != NULL);
-    fprintf(log_file, "%s\n", (char*)str);
+    fprintf(log_file, "%s", (char*)str);
     fflush(log_file);
     free((void *)str);
 }

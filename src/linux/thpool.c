@@ -6,6 +6,9 @@
 #include <errno.h>
 #include <string.h>
 #include <time.h>
+#if defined(__linux__)
+#include <sys/prctl.h>
+#endif
 #include "datatype.h"
 #include "linked_list.h"
 #include "thpool.h"
@@ -117,12 +120,12 @@ thread_pool_t* thpool_create(int thread_num){
     for (int i = 0; i < thread_num; i++) {
         thread_init(&(thread_pool_ptr->threads[i]), thread_pool_ptr, i);
         LOG_DEBUG("thpool_create(): Created thread %d in pool \n", i);
-        if (pthread_detach(thread_pool_ptr->threads[i]->thread) != 0) {
+        /*if (pthread_detach(thread_pool_ptr->threads[i]->thread) != 0) {
             LOG_ERROR("thpool_create(): Could not detach thread %d\n", i);
             work_queue_destroy(&thread_pool_ptr->work_queue);
             thpool_destroy(thread_pool_ptr);
             return NULL;
-        }
+        }*/
     }
 
     // 等待所有线程启动
@@ -132,6 +135,7 @@ thread_pool_t* thpool_create(int thread_num){
 
 // 把任务添加到线程池中
 int thpool_add_work(thread_pool_t *thread_pool_ptr, void (*func)(void *), void *arg){
+    LOG_DEBUG("thpool_add_work(): add work to thread pool\n");
     work_t *work;
     work = (work_t *)malloc(sizeof(work_t));
     if (work == NULL) {
@@ -142,17 +146,19 @@ int thpool_add_work(thread_pool_t *thread_pool_ptr, void (*func)(void *), void *
     work->arg = arg;
 
     work_queue_push(&thread_pool_ptr->work_queue, work);
-
+    LOG_DEBUG("thpool_add_work(): add work to work queue success\n");
     return THPOOL_SUCCESS;
 }
 
 // 等待线程池中的所有线程完成任务
 void thpool_wait(thread_pool_t *thread_pool_ptr){
+    LOG_DEBUG("thpool_wait(): wait for all threads to finish\n");
     pthread_mutex_lock(&thread_pool_ptr->thcount_lock);
     while (thread_pool_ptr->work_queue.size || thread_pool_ptr->num_thread_working) {
         pthread_cond_wait(&thread_pool_ptr->threads_all_idle, &thread_pool_ptr->thcount_lock);
     }
     pthread_mutex_unlock(&thread_pool_ptr->thcount_lock);
+    LOG_DEBUG("thpool_wait(): all threads finish\n");
 }
 
 // 销毁线程池
@@ -197,7 +203,7 @@ void thpool_resume(thread_pool_t *thread_pool_ptr){
 }
 
 // 获取线程池中的线程数
-int thpool_num_threads_working(thread_pool_t *thread_pool_ptr){
+int thpool_get_thread_num(thread_pool_t *thread_pool_ptr){
     return thread_pool_ptr->num_thread_working;
 }
 
@@ -217,12 +223,13 @@ static int thread_init(thread_t **thread_ptr, thread_pool_t *thread_pool_ptr, in
         LOG_ERROR("thread_init(): Could not allocate memory for thread\n");
         return THPOOL_FAIL;
     }
+    LOG_DEBUG("thread_init(): Allocated memory for thread %d\n", id);
     (*thread_ptr)->thread_pool_ptr = thread_pool_ptr;
     (*thread_ptr)->id = id;
 
     pthread_create(&(*thread_ptr)->thread, NULL, (void * (*)(void *))thread_do, (*thread_ptr));
     pthread_detach((*thread_ptr)->thread);
-
+    LOG_DEBUG("thread_init(): Created thread %d in pool \n", id);
     return THPOOL_SUCCESS;
 }
 
@@ -237,13 +244,32 @@ static int thread_init(thread_t **thread_ptr, thread_pool_t *thread_pool_ptr, in
  */
 static void *thread_do(thread_t *thread){
     // 线程初始化
-    thread_init(thread, thread->thread_pool_ptr, thread->id);
-    LOG_DEBUG("thread_do(): Thread %d is starting\n", thread->id);
-
+    // 设置线程名称
+    char thread_name[128] = {0};
+    snprintf(thread_name, sizeof(thread_name), "thread-%d", thread->id);
+#if defined(__linux__)
+    prctl(PR_SET_NAME, thread_name);
+#elif defined(__APPLE__) && defined(__MACH__)
+    pthread_setname_np(thread_name);
+#endif
+    thread_pool_t *thread_pool_ptr = thread->thread_pool_ptr;
+    /* 注册信号 */
+    struct sigaction act;
+    act.sa_handler = thread_hold;
+    act.sa_flags = 0;
+    sigemptyset(&act.sa_mask);
+    if (sigaction(SIGUSR1, &act, NULL) == -1) {
+        LOG_ERROR("thread_do(): Cannot handle SIGUSR1\n");
+    }
+    // 将线程标记为活跃
+    pthread_mutex_lock(&thread_pool_ptr->thcount_lock);
+    thread_pool_ptr->num_thread_alive++;
+    pthread_mutex_unlock(&thread_pool_ptr->thcount_lock);
     // 线程主循环
     while (threads_keepalive) {
         semaphore_wait(thread->thread_pool_ptr->work_queue.has_jobs);
         if (threads_keepalive) {
+            LOG_DEBUG("thread_do(): Thread %d woke up\n", thread->id);
             // 线程池中的线程数加1
             pthread_mutex_lock(&thread->thread_pool_ptr->thcount_lock);
             thread->thread_pool_ptr->num_thread_working++;
@@ -264,12 +290,15 @@ static void *thread_do(thread_t *thread){
             // 线程池中的线程数减1
             pthread_mutex_lock(&thread->thread_pool_ptr->thcount_lock);
             thread->thread_pool_ptr->num_thread_working--;
+            LOG_DEBUG("thread_do(): Thread %d is going to sleep\n", thread->id);
             if (!thread->thread_pool_ptr->num_thread_working) {
                 pthread_cond_signal(&thread->thread_pool_ptr->threads_all_idle);
             }
             pthread_mutex_unlock(&thread->thread_pool_ptr->thcount_lock);
+            LOG_DEBUG("thread_do(): Thread %d is sleeping\n", thread->id);
         }
     }
+    LOG_DEBUG("thread_do(): Thread %d is exiting\n", thread->id);
     thread_hold(SIGUSR1);
     return NULL;
 }
@@ -327,6 +356,7 @@ static void work_queue_clear(work_queue_t *work_queue){
     pthread_mutex_lock(&work_queue->rwmutex);
     linked_list_free(work_queue->list);
     work_queue->size = 0;
+    semaphore_reset(work_queue->has_jobs);
     pthread_mutex_unlock(&work_queue->rwmutex);
 }
 
@@ -353,10 +383,12 @@ static void work_queue_push(work_queue_t *work_queue, work_t *work){
 static work_t *work_queue_pull(work_queue_t *work_queue){
     work_t *work_p = NULL;
     pthread_mutex_lock(&work_queue->rwmutex);
+    LOG_DEBUG("work_queue_pull(): Queue size: %d\n", work_queue->size);
     linked_list_node *node = linked_list_delete_head(work_queue->list);
     work_p = (work_t *)node->data;
     work_queue->size--;
     pthread_mutex_unlock(&work_queue->rwmutex);
+    LOG_DEBUG("work_queue_pull(): Pull Success,Queue size: %d\n", work_queue->size);
     return work_p;
 }
 
@@ -373,13 +405,13 @@ static void work_queue_destroy(work_queue_t *work_queue){
 /*=====================同步信号相关=====================*/
 
 /**
- * @brief 初始化信号量
+ * @brief 初始化信号量,目前只有0和1两种状态
  * 
  * @param semaphore 需要初始化的信号量
  * @param init_value 信号量的初始值
  */
 static void semaphore_init(semaphore_t *semaphore, int init_value){
-    if (sem_init(semaphore, 0, init_value) == -1) {
+    if (init_value < 0 || init_value > 1) {
         LOG_ERROR("semaphore_init(): Could not initialize semaphore\n");
         exit(1);
     }
@@ -395,6 +427,7 @@ static void semaphore_init(semaphore_t *semaphore, int init_value){
  * @param semaphore 需要等待的信号量
  */
 static void semaphore_wait(semaphore_t *semaphore){
+    LOG_DEBUG("semaphore_wait(): Waiting for semaphore\n");
     pthread_mutex_lock(&semaphore->mutex);
     while (semaphore->v != 1) {
         pthread_cond_wait(&semaphore->cond, &semaphore->mutex);
