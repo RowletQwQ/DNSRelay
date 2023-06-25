@@ -54,7 +54,7 @@ void parse_args(int argc,char *argv[]){
     while((opt = getopt(argc,argv,"d:s:c:l:h")) != -1){
         switch(opt){
             case 'd':
-                setting.debug_level = atoi(optarg);
+                setting.debug_level = (atoi(optarg) > 3 || atoi(optarg) < 0) ? 0 : atoi(optarg);
                 break;
             case 's':
                 if(inet_pton(AF_INET,optarg,&setting.dns_server_4) == 1){
@@ -63,6 +63,7 @@ void parse_args(int argc,char *argv[]){
                     setting.dns_type = AF_INET6;
                 }else{
                     printf("Invalid dns server ip\n");
+                    say_help();
                     exit(1);
                 }
                 break;
@@ -77,6 +78,7 @@ void parse_args(int argc,char *argv[]){
                 break;
             default:
                 printf("Invalid option\n");
+                say_help();
                 exit(1);
         }
     }
