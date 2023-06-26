@@ -5,7 +5,8 @@
 #include "socket.h"
 #include "parsedata.h"
 #include "trie.h"
-
+#define TASK_SUCCESS 0
+#define TASK_FAIL -1
 extern struct list_ops_unit task_pool;
 
 extern struct trie_node * trie_cache;
@@ -299,20 +300,20 @@ int update_db(struct task * task_,int offset){
         printf("req_ type %d\n",req_.rtype);
         
         // 封口
-        req_.req_domain[req_.domain_len] = '\0';
+        req_.req_domain[(int)req_.domain_len] = '\0';
         req_.rdata[req_.rdata_len] = '\0';
         // 先插入到缓存中
 
         
         
-        if(trie_insert(trie_cache,req_.req_domain,req_.rtype,req_.rdata_len,req_.rdata,req_.ttl) == FAIL){
+        if(trie_insert(trie_cache,req_.req_domain,req_.rtype,req_.rdata_len,(byte*)req_.rdata,req_.ttl) == FAIL){
             printf("trie_insert failed!\n");
         }else{
             printf("trie_insert success! %s\n",req_.req_domain);
         }
     }
 
-
+    return TASK_SUCCESS;
 }
 
 int throw_to_dns (struct task* task_,char *message,int m_len){
