@@ -59,6 +59,10 @@ int delete_record_by_type(const char *domin_name, uint16 record_type);
  */
 int query_record(const char *domin_name, uint16 record_type, DNSRecord *record);
 
-
+/**
+ * @brief 初始化dao层，包括初始化缓存，数据库，以及读写锁等
+ * 
+ */
+void init_dao();
 
 #endif
