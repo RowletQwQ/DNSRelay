@@ -53,14 +53,17 @@ int read_data(struct domin_table_data **buffer){
         struct in_addr addr;
         struct in6_addr addr6;
         if (inet_pton(AF_INET, ip, &addr) == 1) {
+            buf->record_len = 4;
             buf->record_type = A;
             memcpy(buf->record, &addr, sizeof(struct in_addr));
         } else if (inet_pton(AF_INET6, ip, &addr6) == 1) {
+            buf->record_len = 16;
             buf->record_type = AAAA;
             memcpy(buf->record, &addr6, sizeof(struct in6_addr));
         } else {
             //如果既不是IPV4也不是IPV6,则为CNAME
             buf->record_type = CNAME;
+            buf->record_len = strlen(ip) + 1;
             strcpy((char*)buf->record, ip);
         }
         strcpy((char*)buf->domin_name, domain);
