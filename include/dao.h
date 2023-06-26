@@ -13,8 +13,9 @@ typedef struct DNSRecord
 {
     char domin_name[256];//域名
     uint16 record_type;// 记录类型
-    byte record[256]; // 记录数据
     int64 expire_time; // 过期时间
+    uint16 record_len; // 记录长度
+    byte record[256]; // 记录数据
 } DNSRecord;
 
 // 以下是DNS记录的相关数据操作,为外部提供一个透明的接口,隐藏内部的缓存和数据库的实现细节
