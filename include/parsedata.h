@@ -76,8 +76,6 @@ int parse_to_answer(const struct req* req_,char* answer);
  */
 int parse_to_req(const char *buffer,struct req * req_,const char* message);
 
-int parse_to_reqs(struct task * task_);
-
 /**
  * @brief 把报文转换成数据条目，更新到缓存和数据库中,并且对于CNAME的rdata中可能存在使用指针的情况，需要解析出来处理
  * 

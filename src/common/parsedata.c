@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
+#include "logger.h"
 
 // 根据系统引入不同的头文件
 #ifdef _WIN32
@@ -20,7 +21,7 @@ int parse_to_req(const char *buffer,struct req * req_,const char* message) {
     int i = parse_to_string(buffer,req_->req_domain,&str_len,message);
     
     if(str_len > 255){
-        printf("domain too long\n");
+        LOG_WARN("domain len is too long");
         return -1;
     }
 
@@ -43,10 +44,7 @@ int parse_to_answer(const struct req* req_,char* answer){
         int16 pointer = 0x0000c000 | req_->domain_pointer;
         
         *name = htons(pointer); // 指针
-        
-        printf("pointer %02x\n",*name);
 
-        
         // 写入其他指针
         int16 * type = (int16 *)(answer + len );
 
@@ -118,7 +116,6 @@ void parse_to_dnsres(struct task * task_) {
 
     int num = task_->req_num;
     for (int i = 0; i < num; i++) {
-        printf("==================>i: %d\n",i);
         // 初始化answer
         memset(answer,0,sizeof(struct dns_answer));
         
@@ -126,7 +123,6 @@ void parse_to_dnsres(struct task * task_) {
         struct linked_list_node * req = linked_list_delete_head(task_->reqs);
         
         if(req == NULL){
-            printf("req is null!\n");
             return;
         }
         
@@ -143,11 +139,9 @@ void parse_to_dnsres(struct task * task_) {
         // 判断是否越界
         if(task_->m_len + answer_size > 512){
             // 判定该请求失败   
-            printf("The answer is too long!\n") ;
+            LOG_WARN("answer_size is too long,drop it");
             return;
         }
-
-        printf("answer_size: %d\n",answer_size);
 
         // 长度更新
         task_->m_len += answer_size;
@@ -161,36 +155,6 @@ void parse_to_dnsres(struct task * task_) {
     free(answer);
 }
 
-int parse_to_reqs(struct task * task_){
-    
-    // 解析报文头
-    struct dns_header *dnshdr = (struct dns_header *)task_->message;
-    // 解析请求数目
-    task_->req_num = ntohs(dnshdr->qdcount);
-    // 创建链表
-    task_->reqs = linked_list_create();
-    // 解析请求
-    char * buf = task_->message;
-    
-    for(int i = 0,offset = 12;i < task_->req_num;i++){
-        printf("Query No.%d\n",i);
-        struct req req_;
-        
-        req_.domain_pointer = (int16) offset;    
-        
-        // 计算偏移
-        offset += parse_to_req(buf + offset,&req_,task_->message);
-        printf("%s\n",req_.req_domain);
-        // 添加到链表中
-        if(linked_list_insert_tail(task_->reqs, (int8 *)&req_,sizeof(struct req)) == -1){
-            return 0;
-            printf("add failed\n");
-        }
-        
-    }
-
-    return 1;
-}
 
 // 把buf解析成字符串域名类型
 int parse_to_string(const char * buf,char * str,int16* str_len, const char * message){
@@ -201,7 +165,7 @@ int parse_to_string(const char * buf,char * str,int16* str_len, const char * mes
     while (buf[i] != 0) {
 
         if(i > 256){
-            printf("parse_to_req: domain name too long!\n");
+            LOG_WARN("parse_to_string: domain name too long,drop it!");
             return -1;
         }
         // 判断是指针还是长度
@@ -216,7 +180,7 @@ int parse_to_string(const char * buf,char * str,int16* str_len, const char * mes
             // 指向最后的域名,可能存在多次跳转
             while(offset & 0x0000c000){
                 if(offset & 0x00003fff > 512){
-                    printf("parse_to_req: domain name too long!\n");
+                    LOG_WARN("parse_to_string: domain name too long,drop it!");
                     return -1;
                 }
                 pointer = (int16 *)(message + (offset & 0x00003fff));
@@ -230,7 +194,7 @@ int parse_to_string(const char * buf,char * str,int16* str_len, const char * mes
             while(message[offset] != 0){
                 str[j++] = message[offset++];
                 if(j > 256){
-                printf("parse_to_req: domain name too long!\n");
+                LOG_WARN("parse_to_string: domain name too long,drop it!");
                 return -1;
             }
             }
@@ -250,8 +214,6 @@ int parse_to_string(const char * buf,char * str,int16* str_len, const char * mes
     *str_len = j ;
 
     str[j-1] = '\0'; // 去除最后一个'.'
-    printf("DEBUG : %d\n",j);
-    printf("str: %s\n",str);
     return i + 1;
 }
 
@@ -270,7 +232,7 @@ int parse_to_data(const char *answer,struct req * req_,const char * message){
         req_->req_domain = (char*)malloc(sizeof(char) * DATA_MAX_BUF);
         int16 str_len = 0;
         if(parse_to_string(message + req_->domain_pointer,req_->req_domain,&str_len,message) == -1){
-            printf("parse_to_data: parse_to_string failed! \n");
+            LOG_WARN("parse_to_string failed,drop it!");
             return -1;
         }
         req_->domain_len = (int8)str_len;
@@ -369,7 +331,7 @@ int parse_to_netstr(char * astr,char * nstr){
         if (next_label == NULL) {
             next_label = astr + strlen(astr);
         }else if(next_label - astr > 63){
-            printf("parse_to_netstr: label len > 63!\n");
+            LOG_WARN("parse_to_netstr: label length > 63,drop it!");
             return -1;
         }
 
@@ -384,7 +346,7 @@ int parse_to_netstr(char * astr,char * nstr){
             len++;
             // 长度不能超过255
             if(len > 255){
-                printf("parse_to_netstr: len > 255!\n");
+                LOG_WARN("parse_to_netstr: domain length > 255,drop it!");
                 return -1;
             }
         }
@@ -418,7 +380,7 @@ int parse_to_rdata(struct req* req_){
                 int netstr_len = parse_to_netstr(req_->rdata,netstr);
 
                 if(netstr_len == -1){
-                    printf("parse_to_rdata: parse_to_netstr failed!\n");
+                    LOG_WARN("parse_to_rdata: parse_to_netstr error!");
                     free(netstr);
                     return -1;
                 }

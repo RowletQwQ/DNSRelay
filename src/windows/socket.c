@@ -6,6 +6,8 @@
 #include <winsock2.h>
 #include "thpool.h"
 #include "parsedata.h"
+#include "logger.h"
+
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -32,7 +34,7 @@ void socket_init(){
         WSADATA wsaData;
         int sta = WSAStartup(MAKEWORD(2, 2), &wsaData);
         if (sta != 0) {
-            printf("fail to init");
+            LOG_ERROR("SOCKET INIT FAIL");
             exit(1);
         }
         sock = socket(AF_INET, SOCK_DGRAM,0);
@@ -56,13 +58,14 @@ void socket_init(){
     int ret = bind(sock, (struct sockaddr *)&any_in_adr, sizeof(any_in_adr));
     
     if (ret < 0) {
-        printf("sock bind fail");
-        // write_log(LOG_LEVEL_FATAL,"bind() failed\n");
+
+        LOG_ERROR("SOCKET BIND FAIL");
+        
         exit(1);
     }
 }
 
-void socket_close(int sock){
+void socket_close(){
     #ifdef _WIN32
         // 初始化WSA
         closesocket(sock);
@@ -74,16 +77,17 @@ void socket_close(int sock){
 }
 
 void socket_req_listen(){
-    
     // 报文缓存区
-    char recv_message[DNS_MAX_LENGTH] = {0};
-    printf("socket_req_listen\n");
-    
+    // char recv_message[DNS_MAX_LENGTH] = {0};
+    LOG_INFO("socket_req_listen");
+    // 提前创建任务
+    struct task*task_ = (struct task *)malloc(sizeof(struct task));
+    task_->message = (char *)malloc(DNS_MAX_BUF *sizeof(char));
     // 循环监听
     while (1) {
         struct sockaddr addr_recv;
         int addr_recv_len = sizeof(addr_recv);
-        int ret = recvfrom(sock, recv_message, DNS_MAX_LENGTH, 0,(struct sockaddr *) &addr_recv, &addr_recv_len);
+        int ret = recvfrom(sock, task_->message, DNS_MAX_LENGTH, 0,(struct sockaddr *) &addr_recv, &addr_recv_len);
         
         if (ret == -1) {
             // 写日志
@@ -91,24 +95,16 @@ void socket_req_listen(){
         } else if (ret == 0) {
             continue;
         } else {
+            task_->m_len = ret;
             // 复制
-            struct task*task_ = (struct task *)malloc(sizeof(struct task));
-            
             task_->addr = addr_recv;
             task_->sock_len = addr_recv_len;
-
-            task_->message = (char *)malloc(DNS_MAX_BUF *sizeof(char));
-            memcpy(task_->message, recv_message, ret);
-            task_->m_len = ret;
-            task_->req_num = 0;
-            task_->reqs = linked_list_create();
-
-            printf("recvfrom %d success\n", ret);
-            
-            // taskworker(task_);
             thpool_add_work(tasker, (void *)taskworker, (void *)task_);
+            task_ = (struct task *)malloc(sizeof(struct task));
+            task_->message = (char *)malloc(DNS_MAX_BUF *sizeof(char));
         }
     }
+    socket_close();
 }
 
 int udp_recv(int sockfd, void *buf, int len, struct sockaddr *src_addr, int *addrlen){
@@ -152,7 +148,7 @@ int send_to_client(char *message,int len,struct sockaddr *src_addr, int addrlen)
     
     if (ret == SOCKET_ERROR) {
         #ifdef _WIN32
-            printf("bind failed: %ld\n", WSAGetLastError());
+            LOG_ERROR("SOCKET BIND FAIL");
             closesocket(send_sock);
         #else
             close(send_sock);
@@ -163,7 +159,7 @@ int send_to_client(char *message,int len,struct sockaddr *src_addr, int addrlen)
     int send_size =  sendto(sock, message, len, 0, src_addr, addrlen);
 
     if (send_size == SOCKET_ERROR) {
-        printf("fail to send");
+        LOG_WARN("send failed\n");
     }
 
     return send_size;
@@ -188,7 +184,7 @@ int talk_to_dns(char *message,int len,struct sockaddr src_addr, int addrlen){
     // 绑定到DNS服务器
     if(bind(send_sock_temp, (struct sockaddr *)&addr, sizeof(addr)) == SOCKET_ERROR){
         #ifdef _WIN32
-            printf("bind failed: %ld\n", WSAGetLastError());
+            LOG_ERROR("DNS BIND FAIL");
             closesocket(send_sock_temp);
         #else
             close(send_sock_temp);
@@ -200,16 +196,14 @@ int talk_to_dns(char *message,int len,struct sockaddr src_addr, int addrlen){
     int send_size = sendto(send_sock_temp, message, len, 0, (struct sockaddr *)&dns_addr, sizeof(struct sockaddr));
 
     if (send_size == SOCKET_ERROR) {
-        printf("fail to send");
-    }else{
-        printf("\nsend success %d\n",send_size);
+        LOG_WARN("fail to send a pocket from %s to dns!",inet_ntoa(((struct sockaddr_in *)&src_addr)->sin_addr));
     }
     
     // 设置定时器，超时返回 -1
     struct timeval timeout;
-    timeout.tv_sec = 3;
+    timeout.tv_sec = 1;
     if (setsockopt(send_sock_temp, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout)) < 0) {
-        printf("setsockopt failed\n");
+        LOG_WARN("fail to set a sockopt!");
         #ifdef _WIN32
             closesocket(send_sock_temp);
         #else
@@ -217,15 +211,13 @@ int talk_to_dns(char *message,int len,struct sockaddr src_addr, int addrlen){
         #endif    
         return -1;
     }
-    
-    printf("setsockopt success\n");
 
     int recv_size = 0;
     recv_size = recvfrom(send_sock_temp, message, DNS_MAX_LENGTH, 0,NULL,NULL);
     
     // 发送给客户端
     if(recv_size != SOCKET_ERROR){
-        printf("recv success %d\n",recv_size);
+        LOG_INFO("send a pocket to client %s",inet_ntoa(((struct sockaddr_in *)&src_addr)->sin_addr));
         send_to_client(message,recv_size,&src_addr,addrlen);
     }
 

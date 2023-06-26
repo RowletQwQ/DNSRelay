@@ -29,22 +29,28 @@ int main(int argc, char *argv[]){
 
     parse_args(argc,argv);
     
+    // 设置DNS服务器设置
+
+
     // 初始化用户文件
     init_read_file(get_user_file());
     tasker = thpool_create(10);
+
     // LOG
     init_log(get_log_file(),get_debug_level(),get_is_output_log());
 
     // 初始化DAO层
     init_dao();
+    LOG_INFO("dao init success");
 
     // 初始化socket IP可以指定
     socket_init();
-    
-    
+    LOG_INFO("socket init success");
+
     // 监听接口
     socket_req_listen();
     
+
     thpool_wait(tasker);
     Sleep(5000);
     thpool_destroy(tasker);

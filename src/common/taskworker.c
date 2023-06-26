@@ -6,6 +6,8 @@
 #include "parsedata.h"
 #include "dao.h"
 #include "logger.h"
+#include "logger.h"
+
 extern struct list_ops_unit task_pool;
 
 extern struct trie_node * trie_cache;
@@ -13,7 +15,9 @@ extern struct trie_node * trie_cache;
 void taskworker(struct task * task_){
     
     task_ = (struct task *)task_;
-    
+    // 原本在socket中，现在移出在这
+    task_->req_num = 0;
+    task_->reqs = linked_list_create();
     // 1.链式解析报文和查询报文
     int query_state = link_query_reqs(task_);
 
@@ -26,8 +30,7 @@ void taskworker(struct task * task_){
         int res = talk_to_dns(task_->message,task_->m_len,task_->addr,task_->sock_len);
         
         if(res == -1){
-            LOG_WARN("throw_to_dns failed!");
-            // 销毁内存
+            LOG_WARN("Fail to talk to dns server\n");
         }else{
             update_db(task_,offset); // 更新数据库
         }
@@ -130,7 +133,6 @@ int link_query_reqs(struct task * task_) {
                 break;
             }else if(resp_type == 5){
                 circle++;
-                
                 // 域名设置
                 req_.req_domain = (char *)malloc(sizeof(char)*DATA_MAX_BUF);
                 req_.rdata = (char *)malloc(sizeof(char)*DATA_MAX_BUF);
@@ -157,13 +159,13 @@ int link_query_reqs(struct task * task_) {
                 //格式化
                 int to_rdata_state = parse_to_rdata(&req_);
                 if(to_rdata_state == -1){
-                    LOG_ERROR("parse_to_rdata failed!");
+                    LOG_WARN("Parse_to_rdata failed!");
                     return -1;
                 }
 
                 // 添加到链表中
                 if(linked_list_insert_tail(task_->reqs, (int8 *)&req_,sizeof(struct req)) == -1){
-                    LOG_ERROR("Insert req failed!");
+                    LOG_WARN("Insert req failed!");
                     return -1;
                 }
 
@@ -257,7 +259,7 @@ int update_db(struct task * task_,int offset){
         // 自己申请,一段空间存放，其他的直接引用    
         offset += parse_to_data(task_->message + offset,&req_,task_->message);
         if(offset == -1){
-            LOG_WARN("parse_to_data failed!");
+            LOG_WARN("Parse_to_data failed!");
             return -1;
         }
 
@@ -273,11 +275,29 @@ int update_db(struct task * task_,int offset){
         LOG_INFO("req_ ttl %d",req_.ttl);
         LOG_INFO("req_ type %d",req_.rtype);
         if(req_.domain_len > 0 && req_.domain_len < 256 && req_.rdata_len > 0 && req_.rdata_len < 256 && req_.rtype > 0){
+            // 假定是A AAAA CNAME中一种
+            
             // 判定数据插入条件
-            if(add_record(req_.req_domain,req_.rtype,req_.rdata,req_.rdata_len,req_.ttl) == DAO_FAILURE){
-                LOG_ERROR("update_db : add_record failed!");
-            }else{
-                LOG_INFO("update_db : add_record %s success!",req_.req_domain);
+                if(add_record(req_.req_domain,req_.rtype,req_.rdata,req_.rdata_len,req_.ttl) == DAO_FAILURE){
+                    LOG_ERROR("update_db : add_record failed!");
+                }else{
+                //     if(req_.rtype == A){
+                //     char * ip = (char *)malloc(sizeof(char)*16);
+                //     inet_ntop(AF_INET, req_.rdata, ip, 16);
+                //     memcpy(ip,req_.rdata,req_.rdata_len);
+                //     LOG_INFO(">>> RES | DOMAIN %s RTYPE %d <<<",req_.req_domain,ip);    
+                //     free(ip);
+
+                // }else if(req_.rtype == AAAA){
+                //     // IPV6
+                //     char * ip = (char *)malloc(sizeof(char)*64);
+                //     inet_ntop(AF_INET6, req_.rdata, ip, 64);
+                //     memcpy(ip,req_.rdata,req_.rdata_len);
+                //     LOG_INFO(">>> RES | DOMAIN %s RTYPE %d <<<",req_.req_domain,ip);    
+                //     free(ip);
+                // }else if(req_.rtype == CNAME){
+                //     LOG_INFO(">>> RES | DOMAIN %s RDATA %s <<<",req_.req_domain,req_.rdata);
+                // }    
             }
         }
     }
