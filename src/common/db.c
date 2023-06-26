@@ -335,7 +335,7 @@ int32 query_all_dns_record(struct domin_table_data **domin_table_data_array) {
     sqlite3_reset(stmt);
     int32 i = 0;
     while (sqlite3_step(stmt) == SQLITE_ROW) {
-        strcpy((*domin_table_data_array)[i].domin_name, sqlite3_column_text(stmt, 0));
+        strcpy((*domin_table_data_array)[i].domin_name, (const char*)sqlite3_column_text(stmt, 0));
         (*domin_table_data_array)[i].record_type = sqlite3_column_int(stmt, 1);
         (*domin_table_data_array)[i].record_len = sqlite3_column_int(stmt, 3);
         (*domin_table_data_array)[i].expire_time = sqlite3_column_int64(stmt, 4);
