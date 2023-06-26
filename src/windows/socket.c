@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <winsock2.h>
 #include "thpool.h"
-
+#include "parsedata.h"
 #ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -14,8 +14,6 @@ SOCKET sock;
 #include <arpa/inet.h>
 int sock;
 #endif
-
-
 
 // 定义变量
 extern thread_pool tasker;
@@ -95,12 +93,11 @@ void socket_req_listen(){
         } else {
             // 复制
             struct task*task_ = (struct task *)malloc(sizeof(struct task));
+            
             task_->addr = addr_recv;
-            
             task_->sock_len = addr_recv_len;
-            
-            task_->message = (char *)malloc(DNS_MAX_LENGTH*sizeof(char));
-            
+
+            task_->message = (char *)malloc(DNS_MAX_BUF *sizeof(char));
             memcpy(task_->message, recv_message, ret);
             task_->m_len = ret;
             task_->req_num = 0;
@@ -164,7 +161,6 @@ int send_to_client(char *message,int len,struct sockaddr *src_addr, int addrlen)
     }
 
     int send_size =  sendto(sock, message, len, 0, src_addr, addrlen);
-    
 
     if (send_size == SOCKET_ERROR) {
         printf("fail to send");

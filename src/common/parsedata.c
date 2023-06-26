@@ -60,7 +60,9 @@ int parse_to_answer(const struct req* req_,char* answer){
         
         // 可以是IP或者字符串
         char* rdata = (char*) (answer + len + 10);
-
+        if(req_->rdata_len > 255){
+            return -1;
+        }
         // 写入类型
         switch(req_->rtype){
             case 1:
@@ -81,12 +83,15 @@ int parse_to_answer(const struct req* req_,char* answer){
                 break;
             case 2:
                 *type = htons(2);
+                memcpy(rdata,req_->rdata,req_->rdata_len);
                 break;
             case 6:
                 *type = htons(6);
+                memcpy(rdata,req_->rdata,req_->rdata_len);
                 break;
             default:
                 *type = htons(5);
+                memcpy(rdata,req_->rdata,req_->rdata_len);
                 break;
         }
         
@@ -98,7 +103,6 @@ void parse_to_dnsres(struct task * task_) {
     
     // 修改相应头
     new_message[2] |= 0x80;  // 响应标志
-    // new_message[3] |= task_->req_num; // 设置回答数量
     
     // 设置rcode为0 -- 假定都查询成功
     new_message[3] &= 0xf0;
@@ -195,37 +199,40 @@ int parse_to_string(const char * buf,char * str,int16* str_len, const char * mes
     int i = 0;
     int16 j = 0;
     while (buf[i] != 0) {
-        
+
         if(i > 256){
             printf("parse_to_req: domain name too long!\n");
             return -1;
         }
-        
         // 判断是指针还是长度
         if(buf[i] & 0xc0){
             // 指针
-            int16 * pointer = (int16 *) (buf + i);
-            
+            int16 * pointer = (int16 *) (buf + i);   
             int16 offset = ntohs(*pointer);
             offset &= 0x00003fff;
             
             i += 2; // 加二
             
-            // 指向最后的域名
+            // 指向最后的域名,可能存在多次跳转
             while(offset & 0x0000c000){
+                if(offset & 0x00003fff > 512){
+                    printf("parse_to_req: domain name too long!\n");
+                    return -1;
+                }
                 pointer = (int16 *)(message + (offset & 0x00003fff));
                 offset = ntohs(*pointer);
             }
+
             // 跳过计数
             offset++;
+            
             // 不是指针了 直接把剩下的拷贝过来
             while(message[offset] != 0){
                 str[j++] = message[offset++];
-            }
-            
-            if(j > 256){
+                if(j > 256){
                 printf("parse_to_req: domain name too long!\n");
                 return -1;
+            }
             }
             // 结束了
             str[j++] = '.';
@@ -233,17 +240,18 @@ int parse_to_string(const char * buf,char * str,int16* str_len, const char * mes
         }else{
             // 长度 是数字
             int len = buf[i];
-            
             for(int k = 0;k < len;k++){
                 str[j++] = buf[++i];
             }
-
             str[j++] = '.';
             i++;
         }
     }
-    *str_len = j;
+    *str_len = j ;
+
     str[j-1] = '\0'; // 去除最后一个'.'
+    printf("DEBUG : %d\n",j);
+    printf("str: %s\n",str);
     return i + 1;
 }
 
@@ -258,21 +266,18 @@ int parse_to_data(const char *answer,struct req * req_,const char * message){
     int len = 0;
     if(pointer & 0xc000){
         req_->domain_pointer = pointer & 0x00003fff;
-
-        printf("%d\n",req_->domain_pointer);
         len = 2;
-        req_->req_domain = (char*)malloc(sizeof(char) * 256);
+        req_->req_domain = (char*)malloc(sizeof(char) * DATA_MAX_BUF);
         int16 str_len = 0;
         if(parse_to_string(message + req_->domain_pointer,req_->req_domain,&str_len,message) == -1){
             printf("parse_to_data: parse_to_string failed! \n");
             return -1;
         }
-
         req_->domain_len = (int8)str_len;
     }else{
         // 不是指针
         req_->domain_pointer = 0;
-        req_->req_domain = (char*)malloc(sizeof(char) * 256);
+        req_->req_domain = (char*)malloc(sizeof(char) * DATA_MAX_BUF);
         int16 str_len = 0;
         if(len = parse_to_string(answer,req_->req_domain,&str_len,message) == -1){
             return -1;
@@ -303,13 +308,6 @@ int parse_to_data(const char *answer,struct req * req_,const char * message){
     // 根据rdata的类型解析 
     req_->rdata = (char *)malloc(sizeof(char) * 256);
     if(req_->rtype == 1){
-        // A
-        // req_->rdata_len = 16;
-        // req_->rdata = (char *)malloc(sizeof(char) * 16);
-        // if(inet_ntop(AF_INET,rdata,req_->rdata,16) == NULL){
-        //     printf("parse_to_req: inet_ntop failed!\n");
-        //     return -1;
-        // }
         req_->rdata_len = 4;
         memcpy(req_->rdata,rdata,4);
     }else if(req_->rtype == 5){
@@ -317,37 +315,37 @@ int parse_to_data(const char *answer,struct req * req_,const char * message){
         if(parse_to_string(rdata,req_->rdata,&req_->rdata_len,message) == -1){
             return -1;
         }
-        req_->rdata_len = strlen(req_->rdata);
+        req_->rdata_len = req_->rdata_len;
     }else if(req_->rtype == 15){
         // MX
         if(parse_to_string(rdata,req_->rdata,&req_->rdata_len,message) == -1){
             return -1;
         }
-        req_->rdata_len = strlen(req_->rdata);
+        req_->rdata_len = req_->rdata_len;
     }else if(req_->rtype == 2){
         // NS
         if(parse_to_string(rdata,req_->rdata,&req_->rdata_len,message) == -1){
             return -1;
         }
-        req_->rdata_len = strlen(req_->rdata);
+        req_->rdata_len = req_->rdata_len;
     }else if(req_->rtype == 6){
         // SOA
         if(parse_to_string(rdata,req_->rdata,&req_->rdata_len,message) == -1){
             return -1;
         }
-        req_->rdata_len = strlen(req_->rdata);
+        req_->rdata_len = req_->rdata_len;
     }else if(req_->rtype == 12){
         // PTR
         if(parse_to_string(rdata,req_->rdata,&req_->rdata_len,message) == -1){
             return -1;
         }
-        req_->rdata_len = strlen(req_->rdata);
+        req_->rdata_len = req_->rdata_len;
     }else if(req_->rtype == 16){
         // TXT
         if(parse_to_string(rdata,req_->rdata,&req_->rdata_len,message) == -1){
             return -1;
         }
-        req_->rdata_len = strlen(req_->rdata);
+        req_->rdata_len = req_->rdata_len;
     }else if(req_->rtype == 28){
         // AAAA
         req_->rdata_len = 16;
@@ -364,11 +362,14 @@ int parse_to_netstr(char * astr,char * nstr){
     // 不等于零，并且大小不超过a_len
     while (*astr != '\0') {
         
-        // 获取域名中的下一个标签（以“.”分隔）
+        // 找到下一个标签
         char *next_label = strchr(astr, '.');
         
         if (next_label == NULL) {
             next_label = astr + strlen(astr);
+        }else if(next_label - astr > 63){
+            printf("parse_to_netstr: label len > 63!\n");
+            return -1;
         }
 
         // 计算标签的长度，并将其添加到DNS报文中
@@ -380,19 +381,19 @@ int parse_to_netstr(char * astr,char * nstr){
         for (int i = 0; i < label_len; i++) {
             *nstr++ = *astr++;
             len++;
+            // 长度不能超过255
+            if(len > 255){
+                printf("parse_to_netstr: len > 255!\n");
+                return -1;
+            }
         }
 
         // 如果还有更多的标签，则在标签之间添加一个“.”（长度为0）
         if (*next_label == '.') {
             astr++;
         }
-
-        // 长度不能超过255
-        if(len > 255){
-            printf("parse_to_netstr: len > 255!\n");
-            return -1;
-        }
     }
+    
     // 封最后的0
     *nstr++ = '\0';
     return nstr - old_nstr;

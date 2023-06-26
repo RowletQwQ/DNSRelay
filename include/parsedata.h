@@ -9,6 +9,9 @@
 #define DNS_NOTEXIST 3 //域名不存在
 #define DNS_QUERY_TYPE_ERROR 4 //查询类型错误
 #define DNS_DEQUERY 5 //拒绝查询
+#define DNS_MAX_BUF 540
+#define DATA_MAX_BUF 300
+
 
 struct task;
 struct req;

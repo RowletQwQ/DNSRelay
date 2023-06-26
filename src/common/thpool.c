@@ -247,6 +247,11 @@ void thpool_destroy(thread_pool_t *thread_pool_ptr){
 
     // 通知所有线程退出
     threads_keepalive = 0;
+#if defined(_WIN32) || defined(_WIN64)
+    threads_on_hold = 0;
+    WaitForMultipleObjects(threads_total, thread_pool_ptr->threads, FALSE, INFINITE);
+#endif
+
     // 唤醒所有线程
 
     semaphore_post_all(thread_pool_ptr->work_queue.has_jobs);

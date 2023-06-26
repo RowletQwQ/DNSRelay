@@ -24,3 +24,13 @@ int thpool_add_work(thread_pool pool, void (*func)(void *), void *arg){
 void thpool_wait(thread_pool pool){
     WaitForThreadpoolWorkCallbacks(pool->pool, FALSE);
 }
+
+// 销毁线程池
+void thpool_destroy(thread_pool pool){
+    CloseThreadpool(pool->pool);
+    free(pool);
+}
+
+int thpool_is_start(thread_pool pool){
+    return pool->pool != NULL;
+}
