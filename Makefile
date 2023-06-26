@@ -12,7 +12,7 @@ ifeq ($(OS),Windows_NT)
 	ENV_FLAG = -lws2_32
 else
 	PATH_SPEC = $(PATH_SRC)linux/
-	ENV_FLAG = -pthread 
+	ENV_FLAG = -pthread -ldl 
 endif
 test: sqlite3.o linked_list.o thpool.o logger.o userfile.o socket.o setting.o trie.o taskworker.o parsedata.o dao.o db.o main.o 
 	$(CC) $(CFLAGS) -I$(PATH_HEADERS) sqlite3.o linked_list.o thpool.o logger.o userfile.o socket.o setting.o trie.o taskworker.o parsedata.o dao.o db.o main.o -lm -o test $(ENV_FLAG)
