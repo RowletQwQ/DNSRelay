@@ -23,9 +23,7 @@ int task_free_flag = 0;
 
 
 
-int main(char argc, char *argv[]){
-    tasker = thpool_create(4);
-    
+int main(int argc, char *argv[]){
     // 解析命令行参数 读文件
     say_hello();
     parse_args(argc,argv);

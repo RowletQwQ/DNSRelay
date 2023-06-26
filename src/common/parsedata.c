@@ -279,7 +279,8 @@ int parse_to_data(const char *answer,struct req * req_,const char * message){
         req_->domain_pointer = 0;
         req_->req_domain = (char*)malloc(sizeof(char) * DATA_MAX_BUF);
         int16 str_len = 0;
-        if(len = parse_to_string(answer,req_->req_domain,&str_len,message) == -1){
+        len = parse_to_string(answer,req_->req_domain,&str_len,message);
+        if(len == -1){
             return -1;
         }
         req_->domain_len = (int8)str_len;
@@ -400,7 +401,7 @@ int parse_to_netstr(char * astr,char * nstr){
 }
 
 int parse_to_rdata(struct req* req_){
-    
+    char *netstr = NULL;
     switch(req_->rtype){
             case 1:
                 // IPV4
@@ -413,7 +414,7 @@ int parse_to_rdata(struct req* req_){
                 // req_->rdata_len = 16;
                 break;
             case 5:
-                char *netstr = (char *)malloc(sizeof(char) * 256);
+                netstr = (char *)malloc(sizeof(char) * 256);
                 int netstr_len = parse_to_netstr(req_->rdata,netstr);
 
                 if(netstr_len == -1){

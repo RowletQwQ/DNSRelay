@@ -294,3 +294,57 @@ int32 insert_domin_info(const char *domin_name, uint16 record_type, byte record[
     return SUCCESS;
 
 }
+
+// 查询数据库中的所有域名信息, 传入的参数为一个二级指针, 用于存储查询结果, 返回值为查询数据的条数
+int32 query_all_dns_record(struct domin_table_data **domin_table_data_array) {
+    // 打开数据库
+    sqlite3 *db = NULL;
+    //char *err_msg = NULL;
+    int32 ret = sqlite3_open(DB_NAME, &db);
+    if (ret != SQLITE_OK) {
+        LOG_ERROR("open db failed");
+        sqlite3_close(db);
+        return FAIL;
+    }
+
+    // 查询
+    char *query_sql = "SELECT domin_name, record_type, record, record_len, expire_time FROM domin_table;";
+    sqlite3_stmt *stmt = NULL;
+    ret = sqlite3_prepare_v2(db, query_sql, -1, &stmt, NULL);
+    if (ret != SQLITE_OK) {
+        LOG_ERROR("prepare sql failed");
+        sqlite3_close(db);
+        return FAIL;
+    }
+
+    // 执行查询
+    int32 count = 0;
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        count++;
+    }
+
+    // 如果查询结果为空, 则直接返回
+    if (count == 0) {
+        sqlite3_close(db);
+        return 0;
+    }
+
+    // 申请内存
+    *domin_table_data_array = (struct domin_table_data *)malloc(sizeof(struct domin_table_data) * count);
+    // 将查询结果存入数组
+    sqlite3_reset(stmt);
+    int32 i = 0;
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        strcpy((*domin_table_data_array)[i].domin_name, (const char*)sqlite3_column_text(stmt, 0));
+        (*domin_table_data_array)[i].record_type = sqlite3_column_int(stmt, 1);
+        (*domin_table_data_array)[i].record_len = sqlite3_column_int(stmt, 3);
+        (*domin_table_data_array)[i].expire_time = sqlite3_column_int64(stmt, 4);
+        memcpy((*domin_table_data_array)[i].record, sqlite3_column_blob(stmt, 2), (*domin_table_data_array)[i].record_len);
+        i++;
+    }
+
+    // 关闭数据库
+    sqlite3_close(db);
+
+    return count;
+}

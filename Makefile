@@ -1,6 +1,7 @@
 CC = gcc
-CFLAGS =  -Wpedantic
-# -Wall -Wextra -Werror
+CFLAGS = -W -Wpedantic -Wall -Wextra -Werror
+SQLITE3_FLAG = 
+# 
 PATH_SRC = src/
 PATH_COMMON = $(PATH_SRC)common/
 PATH_HEADERS = include/
@@ -13,10 +14,16 @@ else
 	PATH_SPEC = $(PATH_SRC)linux/
 	ENV_FLAG = -pthread 
 endif
-
+test: sqlite3.o linked_list.o thpool.o logger.o userfile.o socket.o setting.o trie.o taskworker.o parsedata.o main.o 
+	$(CC) $(CFLAGS) -I$(PATH_HEADERS) sqlite3.o linked_list.o thpool.o logger.o userfile.o socket.o setting.o trie.o taskworker.o parsedata.o main.o -lm -o test $(ENV_FLAG)
 debugversion: linked_list.o thpool.o logger.o userfile.o socket.o setting.o trie.o taskworker.o parsedata.o main.o 
 	$(CC) $(CFLAGS) -D DISABLE_MUTI_THREAD -I$(PATH_HEADERS) linked_list.o thpool.o logger.o userfile.o socket.o setting.o trie.o taskworker.o parsedata.o main.o -lm -g -o debugversion $(ENV_FLAG)
 
+db_read: sqlite3.o linked_list.o thpool.o logger.o userfile.o db.o db_read_all.o
+	$(CC) $(CFLAGS) -I$(PATH_HEADERS) sqlite3.o linked_list.o thpool.o logger.o userfile.o db.o db_read_all.o -o db_read_all $(ENV_FLAG) -lm
+
+db_read_all.o: $(PATH_SRC)db_read_all.c
+	$(CC) $(CFLAGS) -I$(PATH_HEADERS) -c $(PATH_SRC)db_read_all.c -o db_read_all.o
 testlogger: logger_disable_thread.o testlogger.o 
 	$(CC) $(CFLAGS) -D DISABLE_MUTI_THREAD -I$(PATH_HEADERS) logger.o testlogger.o -o testlogger -lm $(ENV_FLAG)
 
@@ -58,8 +65,8 @@ dao.o: $(PATH_COMMON)dao.c $(PATH_HEADERS)dao.h
 userfile.o: $(PATH_COMMON)userfile.c $(PATH_HEADERS)userfile.h
 	$(CC) $(CFLAGS) -I$(PATH_HEADERS) -c $(PATH_COMMON)userfile.c -o userfile.o
 
-socket.o: $(PATH_SPEC)socket.c $(PATH_HEADERS)socket.h
-	$(CC) $(CFLAGS) -I$(PATH_HEADERS) -c $(PATH_SPEC)socket.c -o socket.o
+socket.o: $(PATH_COMMON)socket.c $(PATH_HEADERS)socket.h
+	$(CC) $(CFLAGS) -I$(PATH_HEADERS) -c $(PATH_COMMON)socket.c -o socket.o
 
 setting.o: $(PATH_COMMON)setting.c $(PATH_HEADERS)setting.h
 	$(CC) $(CFLAGS) -I$(PATH_HEADERS) -c $(PATH_COMMON)setting.c -o setting.o
@@ -77,7 +84,7 @@ thpool.o: $(PATH_SPEC)thpool.c $(PATH_HEADERS)thpool.h
 	$(CC) $(CFLAGS) -I$(PATH_HEADERS) -c $(PATH_SPEC)thpool.c -o thpool.o
 
 sqlite3.o: $(PATH_COMMON)sqlite3.c $(PATH_HEADERS)sqlite3.h
-	$(CC) $(CFLAGS) -I$(PATH_HEADERS) -c $(PATH_COMMON)sqlite3.c -o sqlite3.o
+	$(CC) $(SQLITE3_FLAG) -I$(PATH_HEADERS) -c $(PATH_COMMON)sqlite3.c -o sqlite3.o
 
 clean:
 	rm -f testlogger thpool_debug userfile_debug setting_test dao_test debugversion *.o

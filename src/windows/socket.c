@@ -62,7 +62,7 @@ void socket_init(){
     }
 }
 
-void socket_close(){
+void socket_close(int sock){
     #ifdef _WIN32
         // 初始化WSA
         closesocket(sock);

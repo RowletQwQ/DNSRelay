@@ -262,7 +262,7 @@ int update_db(struct task * task_,int offset){
         }
 
         // 封口
-        req_.req_domain[req_.domain_len] = '\0';
+        req_.req_domain[(int)req_.domain_len] = '\0';
         req_.rdata[req_.rdata_len] = '\0';
         
         // 添加到缓存
