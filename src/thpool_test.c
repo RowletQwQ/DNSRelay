@@ -21,14 +21,13 @@ int main(int argc, char* argv[]) {
         printf("DEBUG_LEVEL: 0-DEBUG, 1-INFO, 2-WARN, 3-ERROR\n");
         return 0;
     }
-    struct thread_pool_t* pool = thpool_create(4);
+    
     init_log(argv[1], atoi(argv[2]),0,NULL);
     // 1.创建线程池
-    struct thread_pool_t* pool = thpool_create(8);
-    
+    struct thread_pool_t* pool = thpool_create(4);
     
     // 2.创建任务
-    for(int i = 0; i < 1000; i++) {
+    for(int i = 0; i < 10; i++) {
         //printf("add work %d\n", i);
         thpool_add_work(pool, print_int, (void*)(uintptr_t)i);
         
