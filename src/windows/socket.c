@@ -60,6 +60,7 @@ void socket_close(int sock){
 }
 
 void socket_req_listen(){
+    
     // 报文缓存区
     char recv_message[DNS_MAX_LENGTH] = {0};
     printf("socket_req_listen\n");
@@ -69,6 +70,7 @@ void socket_req_listen(){
         struct sockaddr addr_recv;
         int addr_recv_len = sizeof(addr_recv);
         int ret = recvfrom(sock, recv_message, DNS_MAX_LENGTH, 0,(struct sockaddr *) &addr_recv, &addr_recv_len);
+        
         if (ret == -1) {
             // 写日志
             continue;
@@ -84,16 +86,14 @@ void socket_req_listen(){
             task_->message = (char *)malloc(DNS_MAX_LENGTH*sizeof(char));
             
             memcpy(task_->message, recv_message, ret);
-            
             task_->m_len = ret;
             task_->req_num = 0;
             task_->reqs = linked_list_create();
-            
+
             printf("recvfrom %d success\n", ret);
             
-            thpool_add_work(tasker, (void *)taskworker, (void *)task_);
-            
-            // linked_list_insert_tail(task_pool,(int8 *) task_,sizeof(struct task));
+            taskworker(task_);
+            // thpool_add_work(tasker, (void *)taskworker, (void *)task_);
         }
     }
 }
@@ -126,6 +126,7 @@ int send_to_client(char *message,int len,struct sockaddr *src_addr, int addrlen)
     SOCKET send_sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     
     struct sockaddr_in addr;
+    
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = htonl(INADDR_ANY); // 绑定到本地地址
@@ -153,66 +154,50 @@ int send_to_client(char *message,int len,struct sockaddr *src_addr, int addrlen)
 
 int talk_to_dns(char *message,int len,struct sockaddr src_addr, int addrlen){
     
-    // 打印参数
     // 绑定新端口
-    SOCKET send_sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    SOCKET send_sock_temp = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    
     // 绑定到本地地址
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
-    
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = htonl(INADDR_ANY); // 绑定到本地地址
     addr.sin_port = 0; // 端口号设置为 0，系统自动分配随机端口
 
     // 绑定到DNS服务器
-    if(bind(send_sock, (struct sockaddr *)&addr, sizeof(addr)) == SOCKET_ERROR){
+    if(bind(send_sock_temp, (struct sockaddr *)&addr, sizeof(addr)) == SOCKET_ERROR){
         printf("bind failed: %ld\n", WSAGetLastError());
-        closesocket(send_sock);
+        closesocket(send_sock_temp);
         return -1;
     }
 
-
     // 定义dns_addr
-    int send_size = sendto(send_sock, message, len, 0, (struct sockaddr *)&dns_addr, sizeof(struct sockaddr));
-    
+    int send_size = sendto(send_sock_temp, message, len, 0, (struct sockaddr *)&dns_addr, sizeof(struct sockaddr));
+
     if (send_size == SOCKET_ERROR) {
         printf("fail to send");
     }else{
         printf("\nsend success %d\n",send_size);
     }
     
-    // 设置定时器，超时返回-1
+    // 设置定时器，超时返回 -1
     struct timeval timeout;
     timeout.tv_sec = 3;
-    timeout.tv_usec = 0;
-    if (setsockopt(send_sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout)) < 0) {
+    if (setsockopt(send_sock_temp, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout)) < 0) {
         printf("setsockopt failed\n");
-        closesocket(send_sock);
+        closesocket(send_sock_temp);
         return -1;
     }
-    
-    struct sockaddr recv_addr;
-    
-    int recv_len = 0;
+    printf("setsockopt success\n");
+
     int recv_size = 0;
-    char * recv_message = (char *)malloc(DNS_MAX_LENGTH*sizeof(char));
-
-    recv_size = recvfrom(send_sock, recv_message, DNS_MAX_LENGTH, 0, (struct sockaddr *)&recv_addr,&recv_len);
-    
-    while(recv_size == SOCKET_ERROR){
-        recv_size = recvfrom(send_sock, message, DNS_MAX_LENGTH, 0, (struct sockaddr *)&recv_addr,&recv_len);
-    }
-
-    closesocket(send_sock);
-    
-    free(recv_message);
-    
+    recv_size = recvfrom(send_sock_temp, message, DNS_MAX_LENGTH, 0,NULL,NULL);
     
     // 发送给客户端
     if(recv_size != SOCKET_ERROR){
-        printf("recv success+++++++++++ %d\n",recv_size);
+        printf("recv success %d\n",recv_size);
         send_to_client(message,recv_size,&src_addr,addrlen);
     }
-    
+    closesocket(send_sock_temp);
     return recv_size;
 }
