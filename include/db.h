@@ -65,4 +65,12 @@ struct record_dto *query_by_domin_name(const char *domin_name, uint16 record_typ
 int32 insert_domin_info(const char *domin_name, uint16 record_type, byte record[256], uint16 record_len, int32 ttl);
 
 
+/**
+ * @brief 查询表中所有的记录
+ * 
+ * @param domin_table_data_array
+ * @return int32 (返回值为数组长度) 
+ */
+*/
+int32 query_all_dns_record(struct domin_table_data **domin_table_data_array);
 #endif
