@@ -10,7 +10,7 @@ void print_int(void* arg) {
     intptr_t n = (intptr_t)arg;
     printf("Thread #%u working on task,number %d\n", (int)pthread_self(),(int)n);
     sum += (int)n;
-    sleep(4);
+    //sleep(4);
 }
 
 int main(int argc, char* argv[]) {
@@ -24,10 +24,10 @@ int main(int argc, char* argv[]) {
     
     init_log(argv[1], atoi(argv[2]),0,NULL);
     // 1.创建线程池
-    struct thread_pool_t* pool = thpool_create(4);
+    struct thread_pool_t* pool = thpool_create(12);
     
     // 2.创建任务
-    for(int i = 0; i < 10; i++) {
+    for(int i = 0; i < 10000; i++) {
         //printf("add work %d\n", i);
         thpool_add_work(pool, print_int, (void*)(uintptr_t)i);
         
@@ -43,6 +43,7 @@ int main(int argc, char* argv[]) {
     thpool_wait(pool);
     // 3.销毁线程池
     printf("destroy thread pool\n");
+    sleep(5);
     thpool_destroy(pool);
     printf("main thread exit\n");
     printf("sum = %d\n", sum);
