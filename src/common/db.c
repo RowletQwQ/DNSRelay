@@ -1,6 +1,7 @@
 #include "db.h"
 #include "sqlite3.h"
 #include "userfile.h"
+#include "logger.h"
 
 #include <stddef.h>
 #include <stdio.h>
@@ -16,63 +17,60 @@ static int32 insert_user_setting_domin_info() {
     // 创建一个domin_table_data结构体指针得到数据
     struct domin_table_data *domin_table_data_ptr = NULL;
     int len = read_data(&domin_table_data_ptr);
-
     // 先删除数据库中expire_time为-1的值, 也就是用户自定义的域名信息
     char *delete_sql = "DELETE FROM domin_table WHERE expire_time = -1;";
     char *err_msg = NULL;
     sqlite3 *db = NULL;
     int32 ret = sqlite3_open(DB_NAME, &db);
     if (ret != SQLITE_OK) {
-        fprintf(stdout, "open db failed\n");
+        LOG_ERROR("open db failed");
         sqlite3_close(db);
         return FAIL;
     }
     ret = sqlite3_exec(db, delete_sql, NULL, NULL, &err_msg);
     if (ret != SQLITE_OK) {
-        fprintf(stdout, "delete failed\n");
+        LOG_ERROR("delete failed");
         sqlite3_close(db);
         return FAIL;
     }
-
     // 插入数据
     char *insert_sql = "INSERT INTO domin_table(domin_name, record_type, record, record_len, expire_time) VALUES(?, ?, ?, ?, ?);";
     sqlite3_stmt *stmt = NULL;
     ret = sqlite3_prepare_v2(db, insert_sql, -1, &stmt, NULL);
     if (ret != SQLITE_OK) {
-        fprintf(stdout, "prepare failed\n");
+        LOG_ERROR("prepare failed");
         sqlite3_close(db);
         return FAIL;
     }
-
     // 绑定数据
     for (int i = 0; i < len; i++) {
         ret = sqlite3_bind_text(stmt, 1, domin_table_data_ptr[i].domin_name, -1, NULL);
         if (ret != SQLITE_OK) {
-            fprintf(stdout, "bind domin_name failed\n");
+            LOG_ERROR("bind domin_name failed");
             sqlite3_close(db);
             return FAIL;
         }
         ret = sqlite3_bind_int(stmt, 2, domin_table_data_ptr[i].record_type);
         if (ret != SQLITE_OK) {
-            fprintf(stdout, "bind record_type failed\n");
+            LOG_ERROR("bind record_type failed");
             sqlite3_close(db);
             return FAIL;
         }
         ret = sqlite3_bind_blob(stmt, 3, domin_table_data_ptr[i].record, domin_table_data_ptr[i].record_len, NULL);
         if (ret != SQLITE_OK) {
-            fprintf(stdout, "bind record failed\n");
+            LOG_ERROR("bind record failed");
             sqlite3_close(db);
             return FAIL;
         }
         ret = sqlite3_bind_int(stmt, 4, domin_table_data_ptr[i].record_len);
         if (ret != SQLITE_OK) {
-            fprintf(stdout, "bind record_len failed\n");
+            LOG_ERROR("bind record_len failed");
             sqlite3_close(db);
             return FAIL;
         }
         ret = sqlite3_bind_int64(stmt, 5, domin_table_data_ptr[i].expire_time);
         if (ret != SQLITE_OK) {
-            fprintf(stdout, "bind expire_time failed\n");
+            LOG_ERROR("bind expire_time failed");
             sqlite3_close(db);
             return FAIL;
         }
@@ -80,7 +78,7 @@ static int32 insert_user_setting_domin_info() {
         // 执行插入
         ret = sqlite3_step(stmt);
         if (ret != SQLITE_DONE) {
-            fprintf(stdout, "insert failed\n");
+            LOG_ERROR("insert failed");
             sqlite3_close(db);
             return FAIL;
         }
@@ -88,7 +86,7 @@ static int32 insert_user_setting_domin_info() {
         // 重置
         ret = sqlite3_reset(stmt);
         if (ret != SQLITE_OK) {
-            fprintf(stdout, "reset failed\n");
+            LOG_ERROR("reset failed");
             sqlite3_close(db);
             return FAIL;
         }
@@ -108,7 +106,7 @@ int32 init_db() {
     char *err_msg = NULL;
     int32 ret = sqlite3_open(DB_NAME, &db);
     if (ret != SQLITE_OK) {
-        fprintf(stdout, "open db failed\n");
+        LOG_ERROR("open db failed");
         sqlite3_close(db);
         return FAIL;
     }
@@ -124,7 +122,7 @@ int32 init_db() {
     
     ret = sqlite3_exec(db, create_table_sql, NULL, NULL, &err_msg);
     if (ret != SQLITE_OK) {
-        fprintf(stdout, "create table failed\n");
+        LOG_ERROR("create table failed");
         sqlite3_close(db);
         return FAIL;
     }
@@ -134,9 +132,9 @@ int32 init_db() {
 
     // 把用户自定义的域名信息插入到数据库中
     if (insert_user_setting_domin_info() == SUCCESS) {
-        fprintf(stdout, "insert user setting domin info success\n");
+        LOG_ERROR("insert user setting domin info success");
     } else {
-        fprintf(stdout, "insert user setting domin info failed\n");
+        LOG_ERROR("insert user setting domin info failed");
     }
 
     return SUCCESS;
@@ -146,11 +144,10 @@ int32 init_db() {
 struct record_dto *query_by_domin_name(const char *domin_name, uint16 record_type) {
     // 打开数据库
     sqlite3 *db = NULL;
-    char *err_msg = NULL;//FIXME 咋不用呢
-    (void)err_msg;
+   // char *err_msg = NULL;
     int32 ret = sqlite3_open(DB_NAME, &db);
     if (ret != SQLITE_OK) {
-        fprintf(stdout, "open db failed\n");
+        LOG_ERROR("open db failed");
         sqlite3_close(db);
         return NULL;
     }
@@ -160,7 +157,7 @@ struct record_dto *query_by_domin_name(const char *domin_name, uint16 record_typ
     sqlite3_stmt *stmt = NULL;
     ret = sqlite3_prepare_v2(db, query_sql, -1, &stmt, NULL);
     if (ret != SQLITE_OK) {
-        fprintf(stdout, "prepare sql failed\n");
+        LOG_ERROR("prepare sql failed");
         sqlite3_close(db);
         return NULL;
     }
@@ -168,7 +165,7 @@ struct record_dto *query_by_domin_name(const char *domin_name, uint16 record_typ
     // 绑定参数
     ret = sqlite3_bind_text(stmt, 1, domin_name, -1, NULL);
     if (ret != SQLITE_OK) {
-        fprintf(stdout, "bind param failed\n");
+        LOG_ERROR("bind param failed");
         sqlite3_close(db);
         return NULL;
     }
@@ -177,7 +174,7 @@ struct record_dto *query_by_domin_name(const char *domin_name, uint16 record_typ
     // 执行查询
     ret = sqlite3_step(stmt);
     if (ret != SQLITE_ROW) {
-        fprintf(stdout, "step failed\n");
+        LOG_ERROR("step failed");
         sqlite3_close(db);
         return NULL;
     }
@@ -194,7 +191,7 @@ struct record_dto *query_by_domin_name(const char *domin_name, uint16 record_typ
         sqlite3_stmt *stmt = NULL;
         ret = sqlite3_prepare_v2(db, delete_sql, -1, &stmt, NULL);
         if (ret != SQLITE_OK) {
-            fprintf(stdout, "prepare sql failed\n");
+            LOG_ERROR("prepare sql failed");
             sqlite3_close(db);
             return NULL;
         }
@@ -202,7 +199,7 @@ struct record_dto *query_by_domin_name(const char *domin_name, uint16 record_typ
         // 绑定参数
         ret = sqlite3_bind_text(stmt, 1, domin_name, -1, NULL);
         if (ret != SQLITE_OK) {
-            fprintf(stdout, "bind param failed\n");
+            LOG_ERROR("bind param failed");
             sqlite3_close(db);
             return NULL;
         }
@@ -211,7 +208,7 @@ struct record_dto *query_by_domin_name(const char *domin_name, uint16 record_typ
         // 执行删除
         ret = sqlite3_step(stmt);
         if (ret != SQLITE_DONE) {
-            fprintf(stdout, "step failed\n");
+            LOG_ERROR("step failed");
             sqlite3_close(db);
             return NULL;
         }
@@ -233,12 +230,10 @@ struct record_dto *query_by_domin_name(const char *domin_name, uint16 record_typ
 int32 insert_domin_info(const char *domin_name, uint16 record_type, byte record[256], uint16 record_len, int32 ttl) {
     // 打开数据库
     sqlite3 *db = NULL;
-    char *err_msg = NULL;
-    //TODO err_msg没用到
-    (void)err_msg;
+    //char *err_msg = NULL;
     int32 ret = sqlite3_open(DB_NAME, &db);
     if (ret != SQLITE_OK) {
-        fprintf(stdout, "open db failed\n");
+        LOG_ERROR("open db failed");
         sqlite3_close(db);
         return FAIL;
     }
@@ -248,7 +243,7 @@ int32 insert_domin_info(const char *domin_name, uint16 record_type, byte record[
     sqlite3_stmt *stmt = NULL;
     ret = sqlite3_prepare_v2(db, insert_sql, -1, &stmt, NULL);
     if (ret != SQLITE_OK) {
-        fprintf(stdout, "prepare sql failed\n");
+        LOG_ERROR("prepare sql failed");
         sqlite3_close(db);
         return FAIL;
     }
@@ -256,31 +251,31 @@ int32 insert_domin_info(const char *domin_name, uint16 record_type, byte record[
     // 绑定参数
     ret = sqlite3_bind_text(stmt, 1, domin_name, -1, NULL);
     if (ret != SQLITE_OK) {
-        fprintf(stdout, "bind param failed\n");
+        LOG_ERROR("bind param failed");
         sqlite3_close(db);
         return FAIL;
     }
     ret = sqlite3_bind_int(stmt, 2, record_type);
     if (ret != SQLITE_OK) {
-        fprintf(stdout, "bind param failed\n");
+        LOG_ERROR("bind param failed");
         sqlite3_close(db);
         return FAIL;
     }
     ret = sqlite3_bind_blob(stmt, 3, record, record_len, NULL);
     if (ret != SQLITE_OK) {
-        fprintf(stdout, "bind param failed\n");
+        LOG_ERROR("bind param failed");
         sqlite3_close(db);
         return FAIL;
     }
     ret = sqlite3_bind_int(stmt, 4, record_len);
     if (ret != SQLITE_OK) {
-        fprintf(stdout, "bind param failed\n");
+        LOG_ERROR("bind param failed");
         sqlite3_close(db);
         return FAIL;
     }
     ret = sqlite3_bind_int64(stmt, 5, time(NULL) + ttl);
     if (ret != SQLITE_OK) {
-        fprintf(stdout, "bind param failed\n");
+        LOG_ERROR("bind param failed");
         sqlite3_close(db);
         return FAIL;
     }
@@ -288,7 +283,7 @@ int32 insert_domin_info(const char *domin_name, uint16 record_type, byte record[
     // 执行插入
     ret = sqlite3_step(stmt);
     if (ret != SQLITE_DONE) {
-        fprintf(stdout, "step failed\n");
+        LOG_ERROR("step failed");
         sqlite3_close(db);
         return FAIL;
     }

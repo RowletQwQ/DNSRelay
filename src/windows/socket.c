@@ -154,23 +154,6 @@ int send_to_client(char *message,int len,struct sockaddr *src_addr, int addrlen)
 int talk_to_dns(char *message,int len,struct sockaddr src_addr, int addrlen){
     
     // 打印参数
-    
-    // struct sockaddr_in *src_addr_in = (struct sockaddr_in *)&src_addr;
-    // char *src_ip = inet_ntoa(src_addr_in->sin_addr);
-    // printf("talk_to_dns\n");
-    // printf("src_ip:%s\n",src_ip);
-    // printf("src_port:%d\n",src_addr_in->sin_port);
-    
-    // // 依次打印
-    // for (int i = 0; i < len; i++) {
-    //     printf("%02x ",message[i]);
-    // }
-    
-    // printf("\n");
-    // printf("len:%d\n",len);
-    // printf("addrlen:%d\n",addrlen);
-
-
     // 绑定新端口
     SOCKET send_sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     // 绑定到本地地址
