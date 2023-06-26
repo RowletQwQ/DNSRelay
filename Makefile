@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -W -Wpedantic -Wall -Wextra -Werror
+CFLAGS = -W -Wpedantic -Wall -Wextra
 SQLITE3_FLAG = 
 # 
 PATH_SRC = src/
@@ -14,8 +14,8 @@ else
 	PATH_SPEC = $(PATH_SRC)linux/
 	ENV_FLAG = -pthread 
 endif
-test: sqlite3.o linked_list.o thpool.o logger.o userfile.o socket.o setting.o trie.o taskworker.o parsedata.o main.o 
-	$(CC) $(CFLAGS) -I$(PATH_HEADERS) sqlite3.o linked_list.o thpool.o logger.o userfile.o socket.o setting.o trie.o taskworker.o parsedata.o main.o -lm -o test $(ENV_FLAG)
+test: sqlite3.o linked_list.o thpool.o logger.o userfile.o socket.o setting.o trie.o taskworker.o parsedata.o dao.o db.o main.o 
+	$(CC) $(CFLAGS) -I$(PATH_HEADERS) sqlite3.o linked_list.o thpool.o logger.o userfile.o socket.o setting.o trie.o taskworker.o parsedata.o dao.o db.o main.o -lm -o test $(ENV_FLAG)
 debugversion: linked_list.o thpool.o logger.o userfile.o socket.o setting.o trie.o taskworker.o parsedata.o main.o 
 	$(CC) $(CFLAGS) -D DISABLE_MUTI_THREAD -I$(PATH_HEADERS) linked_list.o thpool.o logger.o userfile.o socket.o setting.o trie.o taskworker.o parsedata.o main.o -lm -g -o debugversion $(ENV_FLAG)
 
@@ -24,8 +24,8 @@ db_read: sqlite3.o linked_list.o thpool.o logger.o userfile.o db.o db_read_all.o
 
 db_read_all.o: $(PATH_SRC)db_read_all.c
 	$(CC) $(CFLAGS) -I$(PATH_HEADERS) -c $(PATH_SRC)db_read_all.c -o db_read_all.o
-testlogger: logger_disable_thread.o testlogger.o 
-	$(CC) $(CFLAGS) -D DISABLE_MUTI_THREAD -I$(PATH_HEADERS) logger.o testlogger.o -o testlogger -lm $(ENV_FLAG)
+testlogger: linked_list.o logger.o testlogger.o 
+	$(CC) $(CFLAGS) -D DISABLE_MUTI_THREAD -I$(PATH_HEADERS) linked_list.o logger.o testlogger.o -o testlogger -lm $(ENV_FLAG)
 
 thpool_debug:linked_list.o thpool.o logger.o thpool_test.o
 	$(CC) $(CFLAGS) -I$(PATH_HEADERS) linked_list.o thpool.o logger.o thpool_test.o -g -lm $(ENV_FLAG)
@@ -44,9 +44,11 @@ dao_test: sqlite3.o linked_list.o thpool.o logger.o userfile.o dao.o trie.o db.o
 
 thpool_test.o: $(PATH_SRC)thpool_test.c
 	$(CC) $(CFLAGS) -I$(PATH_HEADERS) -c $(PATH_SRC)thpool_test.c -o thpool_test.o
-logger_disable_thread.o: $(PATH_COMMON)logger.c $(PATH_HEADERS)logger.h
+logger_disable_thread.o: linked_list.o $(PATH_COMMON)logger.c $(PATH_HEADERS)logger.h
 	$(CC) $(CFLAGS) -D DISABLE_MUTI_THREAD -I$(PATH_HEADERS) -c $(PATH_COMMON)logger.c -o logger.o
 
+testlogger.o: $(PATH_SRC)testlogger.c
+	$(CC) $(CFLAGS) -I$(PATH_HEADERS) -c $(PATH_SRC)testlogger.c -o testlogger.o
 main.o : $(PATH_SRC)main.c
 	$(CC) $(CFLAGS) -I$(PATH_HEADERS) -c $(PATH_SRC)main.c -o main.o
 
@@ -75,7 +77,7 @@ parsedata.o: $(PATH_COMMON)parsedata.c $(PATH_HEADERS)parsedata.h
 	$(CC) $(CFLAGS) -I$(PATH_HEADERS) -c $(PATH_COMMON)parsedata.c -o parsedata.o
 
 logger.o: $(PATH_COMMON)logger.c $(PATH_HEADERS)logger.h
-	$(CC) $(CFLAGS) -I$(PATH_HEADERS) -c $(PATH_COMMON)logger.c -o logger.o
+	$(CC) $(CFLAGS) -I$(PATH_HEADERS) -c $(PATH_COMMON)logger.c -o logger.o $(ENV_FLAG)
 
 linked_list.o: $(PATH_COMMON)linked_list.c $(PATH_HEADERS)linked_list.h
 	$(CC) $(CFLAGS) -I$(PATH_HEADERS) -c $(PATH_COMMON)linked_list.c -o linked_list.o

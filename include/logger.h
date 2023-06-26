@@ -8,17 +8,15 @@
 #define LOG_LEVEL_ERROR 3 //错误信息,输出信息最少
 
 //声明
-typedef struct thread_pool_t* thread_pool;
-
+//typedef struct thread_pool_t* thread_pool;
 /**
  * @brief 初始化日志打印,需要在main函数中调用,会开启线程池
  * 
  * @param log_file_name 日志文件名
  * @param flag 日志级别
  * @param std_flag 是否打印到标准输出
- * @param pool 线程池
  */
-void init_log(const char *log_file_name, int flag,int std_flag,thread_pool pool);
+void init_log(const char *log_file_name, int flag,int std_flag);
 /**
  * @brief 日志打印函数
  * 日志格式为:日志级别 时间 日志内容
@@ -28,26 +26,20 @@ void init_log(const char *log_file_name, int flag,int std_flag,thread_pool pool)
  * @param ... 
  */
 void write_log(int level, const char *format, ...);
-/**
- * @brief 获取当前时间
- * 
- * @return 当前时间字符串
- */
 
+
+/**
+ * @brief 关闭日志打印
+ * 
+ */
+void close_log();
 //宏定义函数
 #define LOG_DEBUG(format, ...) write_log(LOG_LEVEL_DEBUG, format, ##__VA_ARGS__)
 #define LOG_INFO(format, ...) write_log(LOG_LEVEL_INFO, format, ##__VA_ARGS__)
 #define LOG_WARN(format, ...) write_log(LOG_LEVEL_WARN, format, ##__VA_ARGS__)
 #define LOG_ERROR(format, ...) write_log(LOG_LEVEL_ERROR, format, ##__VA_ARGS__)
 
-const char* get_time();
 
-/**
- * @brief 日志打印线程
- * 
- * @param str 日志字符串
- */
-void log_worker(void *str);
 
 
 #endif
