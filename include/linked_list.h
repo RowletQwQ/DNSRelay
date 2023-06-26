@@ -118,4 +118,12 @@ void linked_list_free(struct list_ops_unit ops_unit);
 */
 int32 linked_list_delete_node(struct list_ops_unit ops_unit, struct linked_list_node *node);
 
+/**
+ * @brief 将一个节点移动到双向链表的头部
+ * 
+ * @param ops_unit 双向链表
+ * @param node 节点
+*/
+int32 linked_list_move_node_to_head(struct list_ops_unit ops_unit, struct linked_list_node *node);
+
 #endif 
