@@ -22,7 +22,7 @@ int main(int argc, char* argv[]) {
         return 0;
     }
     
-    init_log(argv[1], atoi(argv[2]),0,NULL);
+    init_log(argv[1], atoi(argv[2]),0);
     // 1.创建线程池
     struct thread_pool_t* pool = thpool_create(12);
     

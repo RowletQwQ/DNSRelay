@@ -37,7 +37,7 @@ int main(int argc, char *argv[]){
     tasker = thpool_create(10);
 
     // LOG
-    init_log(get_log_file(),get_debug_level(),0,NULL);
+    init_log(get_log_file(),get_debug_level(),0);
 
     // 初始化DAO层
     init_dao();
@@ -50,7 +50,7 @@ int main(int argc, char *argv[]){
     // 监听接口
     socket_req_listen();
     
-    
+
     thpool_wait(tasker);
     Sleep(5000);
     thpool_destroy(tasker);
