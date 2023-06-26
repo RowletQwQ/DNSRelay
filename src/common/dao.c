@@ -112,7 +112,7 @@ void init_dao(){
 
 int add_record(const char *domin_name, uint16 record_type, byte record[256], uint16 record_len, int32 ttl){
     rwlock_wrlock(&rwlock);
-    int ret = add_record_nolock(record);
+    int ret = add_record_nolock(domin_name, record_type, record, record_len, ttl);
     rwlock_wr_unlock(&rwlock);
     return ret;
 }
@@ -127,8 +127,18 @@ int query_record(const char *domain, uint16 record_type, DNSRecord *record){
 
 static int add_record_nolock(const char *domin_name, uint16 record_type, byte record[256], uint16 record_len, int32 ttl){
     // 先插入缓存
-    
-
+    int ret = trie_insert(cache_root, domin_name, record_type, record_len, record, ttl);
+    if(ret != 0){
+        LOG_ERROR("insert cache failed");
+        return ret;
+    }
+    // 再插入数据库
+    ret = insert_domin_info(domin_name, record_type, record, record_len, ttl);
+    if(ret != 0){
+        LOG_ERROR("insert db failed");
+        return ret;
+    }
+    return ret;
 }
 
 static int query_record_nolock(const char *domain, uint16 record_type, DNSRecord *record){
@@ -144,7 +154,7 @@ static int query_record_nolock(const char *domain, uint16 record_type, DNSRecord
         // 查到之后，计算ttl
         int32 ttl = record_dto->expire_time - time(NULL);
         // 插入缓存
-        int ret = trie_insert(cache_root, domain ,record_type, record_dto->record, record_dto->record_len, ttl);
+        int ret = trie_insert(cache_root, domain ,record_type, record_dto->record_len, record_dto->record, ttl);
         if(ret != 0){
             LOG_ERROR("insert cache failed");
             return -1;
