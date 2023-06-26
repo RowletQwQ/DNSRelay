@@ -60,13 +60,13 @@ void socket_init(){
 #endif
     // 创建socket
     struct my_dns_addr dns = get_dns_server();
-    char *dns_addr = dns.addr;
+    //char *dns_addr = dns.addr;
     if(dns.family != AF_INET && dns.family != AF_INET6){
         LOG_ERROR("get_dns_server() failed");
         exit(1);
     }
     socket_fd = socket(dns.family, SOCK_DGRAM, 0);
-    if (socket_fd == -1) {
+    if (socket_fd == (SOCKET)SOCKET_ERROR) {
         LOG_ERROR("socket() failed");
         exit(1);
     }
@@ -82,53 +82,6 @@ void socket_init(){
 void socket_close(int sock){
     close_socket(sock);
 }
-
-// 监听端口
-void socket_req_listen(void * arg){
-    (void)arg;
-    // 报文缓冲区
-    char buf[DNS_MAX_LENGTH];
-    LOG_DEBUG("socket_req_listen() start");
-    while(1){
-        // 接受报文
-        socklen_t addr_len;
-        struct sockaddr_in6 addr6;
-        struct sockaddr_in addr;
-        int ret = 0;
-        if(get_dns_server().family == AF_INET){
-            addr_len = sizeof(addr);
-            ret = recvfrom(socket_fd, buf, DNS_MAX_LENGTH, 0, (struct sockaddr *)&addr, &addr_len);
-            if(ret <= 0){
-                LOG_WARN("recvfrom() failed");
-                continue;
-            }
-        }else{
-            addr_len = sizeof(addr6);
-            ret = recvfrom(socket_fd, buf, DNS_MAX_LENGTH, 0, (struct sockaddr *)&addr6, &addr_len);
-            if(ret <= 0){
-                LOG_WARN("recvfrom() failed");
-                continue;
-            }
-        }
-        // 将报文放入任务池
-        struct task *t = (struct task *)malloc(sizeof(struct task));
-        if(t == NULL){
-            LOG_ERROR("malloc() failed");
-            exit(1);
-        }
-        t->sock_len = addr_len;
-        t->addr = (char*)malloc(addr_len);
-        memcpy(t->addr, get_dns_server().family == AF_INET ? (char *)&addr : (char *)&addr6, addr_len);
-
-        t->message = (char*)malloc(DNS_MAX_LENGTH);
-        memset(t->message, 0, DNS_MAX_LENGTH);
-        memcpy(t->message, buf, DNS_MAX_LENGTH);
-        t->m_len = ret;
-        LOG_INFO("recvfrom() success");
-        linked_list_insert_tail(&task_pool, (char*)t,sizeof(struct task));
-    }
-}
-
 
 int udp_recv(int sockfd, void *buf, int len, struct sockaddr *src_addr, int *addrlen){
     // 默认拿到地址信息
@@ -156,14 +109,14 @@ int udp_send(int sockfd, const void *buf, int len, const struct sockaddr *dest_a
 static void socket_init_ipv4(struct my_dns_addr dns){
     // 给接受端口赋值
     memset(&any_in_adr, 0, sizeof(any_in_adr));
-    any_in_adr.sa_family = AF_INET;
+    any_in_adr.sin_family = AF_INET;
     any_in_adr.sin_addr.s_addr = INADDR_ANY;
     any_in_adr.sin_port = htons(53);
 
     // 给dns服务器赋值
     memset(&dns_addr, 0, sizeof(dns_addr));
-    dns_addr.sa_family = AF_INET;
-    memcpy(&dns_addr.sin_addr, dns.addr, sizeof(dns_addr.sin_addr));
+    dns_addr.sin_family = AF_INET;
+    memcpy(&dns_addr.sin_addr, &dns.u, sizeof(dns_addr.sin_addr));
     dns_addr.sin_port = htons(53);
 
     // 绑定接受端口
@@ -188,7 +141,7 @@ static void socket_init_ipv6(struct my_dns_addr dns){
     // 给dns服务器赋值
     memset(&dns_addr6, 0, sizeof(dns_addr6));
     dns_addr6.sin6_family = AF_INET6;
-    memcpy(&dns_addr6.sin6_addr, dns.addr, sizeof(dns_addr6.sin6_addr));
+    memcpy(&dns_addr6.sin6_addr, &dns.u, sizeof(dns_addr6.sin6_addr));
     dns_addr6.sin6_port = htons(53);
 
     // 绑定接受端口
@@ -198,3 +151,124 @@ static void socket_init_ipv6(struct my_dns_addr dns){
     }
 }
 
+void socket_req_listen(){
+    
+    // 报文缓存区
+    char recv_message[DNS_MAX_LENGTH] = {0};
+    //printf("socket_req_listen\n");
+    LOG_DEBUG("socket_req_listen() start");
+    // 循环监听
+    while (1) {
+        struct sockaddr addr_recv;
+        int addr_recv_len = sizeof(addr_recv);
+        int ret = recvfrom(socket_fd, recv_message, DNS_MAX_LENGTH, 0,(struct sockaddr *) &addr_recv, &addr_recv_len);
+        
+        if (ret == -1) {
+            // 写日志
+            continue;
+        } else if (ret == 0) {
+            continue;
+        } else {
+            // 复制
+            struct task*task_ = (struct task *)malloc(sizeof(struct task));
+            task_->addr = addr_recv;
+            
+            task_->sock_len = addr_recv_len;
+            
+            task_->message = (char *)malloc(DNS_MAX_LENGTH*sizeof(char));
+            
+            memcpy(task_->message, recv_message, ret);
+            task_->m_len = ret;
+            task_->req_num = 0;
+            task_->reqs = linked_list_create();
+
+            printf("recvfrom %d success\n", ret);
+            
+            taskworker(task_);
+            // thpool_add_work(tasker, (void *)taskworker, (void *)task_);
+        }
+    }
+}
+int send_to_client(char *message,int len,struct sockaddr *src_addr, int addrlen){
+    //打印src_addr对应的地址
+    struct sockaddr_in *src_addr_in = (struct sockaddr_in *)src_addr;
+    char *src_ip = inet_ntoa(src_addr_in->sin_addr);
+    LOG_INFO("send to client ip:%s",src_ip);
+    socket_t send_sock= socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    
+    struct sockaddr_in addr;
+    
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_ANY); // 绑定到本地地址
+    addr.sin_port = 0; // 端口号设置为 0，系统自动分配随机端口
+    
+    int ret = bind(send_sock, (struct sockaddr *)&addr, sizeof(addr));
+    
+    if (ret == SOCKET_ERROR) {
+        LOG_ERROR("bind() failed");
+        socket_close(send_sock);
+        return 1;
+    }
+
+    int send_size =  sendto(socket_fd, message, len, 0, src_addr, addrlen);
+    
+
+    if (send_size == SOCKET_ERROR) {
+        LOG_ERROR("sendto() failed");
+    }
+
+    return send_size;
+}
+
+int talk_to_dns(char *message,int len,struct sockaddr src_addr, int addrlen){
+    socket_t send_sock_temp = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    // 绑定新端口
+
+    // 绑定到本地地址
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_ANY); // 绑定到本地地址
+    addr.sin_port = 0; // 端口号设置为 0，系统自动分配随机端口
+
+    // 绑定到DNS服务器
+    if(bind(send_sock_temp, (struct sockaddr *)&addr, sizeof(addr)) == SOCKET_ERROR){
+        LOG_ERROR("bind() failed");
+        socket_close(send_sock_temp);
+        return -1;
+    }
+
+    // 定义dns_addr
+    int send_size = sendto(send_sock_temp, message, len, 0, (struct sockaddr *)&dns_addr, sizeof(struct sockaddr));
+
+    if (send_size == SOCKET_ERROR) {
+        LOG_ERROR("sendto() failed");
+    }else{
+        LOG_DEBUG("sendto() success, send_size: %d", send_size);
+    }
+    
+    // 设置定时器，超时返回 -1
+    struct timeval timeout;
+    timeout.tv_sec = 3;
+    if (setsockopt(send_sock_temp, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout)) < 0) {
+        printf("setsockopt failed\n");
+        socket_close(send_sock_temp);
+        return -1;
+    }
+    
+    printf("setsockopt success\n");
+
+    int recv_size = 0;
+    recv_size = recvfrom(send_sock_temp, message, DNS_MAX_LENGTH, 0,NULL,NULL);
+    
+    // 发送给客户端
+    if(recv_size != SOCKET_ERROR){
+        printf("recv success %d\n",recv_size);
+        send_to_client(message,recv_size,&src_addr,addrlen);
+    }
+
+    socket_close(send_sock_temp);
+    
+    return recv_size;
+}
