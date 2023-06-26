@@ -50,6 +50,7 @@ void socket_close(int sock){
 
 void socket_req_listen(){
     char recv_message[DNS_MAX_LENGTH] = {0};
+    printf("socket_req_listen\n");
     // 循环监听
     while (1) {
         struct sockaddr addr_recv;

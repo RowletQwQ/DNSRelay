@@ -7,14 +7,14 @@
 // #define SOCKET_ERROR -1
 // #define INVALID_SOCKET -1
 //地址族定义
-#define AF_INET 2 //IPv4地址族
-#define AF_INET6 23 //IPv6地址族
-#define AF_UNSPEC 0 //未指定地址族
+//#define AF_INET 2 //IPv4地址族
+//#define AF_INET6 23 //IPv6地址族
+//#define AF_UNSPEC 0 //未指定地址族
 //套接字类型定义
-#define SOCK_STREAM 1 //流式套接字
-#define SOCK_DGRAM 2 //数据报套接字
-#define SOCK_RAW 3 //原始套接字
-#define SOCK_RDM 4 //可靠数据报套接字
+//#define SOCK_STREAM 1 //流式套接字
+//#define SOCK_DGRAM 2 //数据报套接字
+//#define SOCK_RAW 3 //原始套接字
+//#define SOCK_RDM 4 //可靠数据报套接字
 // DNS报文最大长度
 #define DNS_MAX_LENGTH 512
 

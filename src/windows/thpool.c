@@ -1,6 +1,6 @@
 #include "thpool.h"
 #include "threadpoolapiset.h"
-
+#include "logger.h"
 /*===============静态函数原型=============*/
 typedef struct {
     void (*func)(void *);
@@ -41,12 +41,14 @@ int thpool_add_work(thread_pool pool, void (*func)(void *), void *arg){
 
 // 等待线程池中所有任务结束(Windows中不需要)
 void thpool_wait(thread_pool pool){
+    LOG_INFO("thpool_wait");
     (void)pool;
     //WaitForThreadpoolWorkCallbacks(pool->pool, FALSE);
 }
 
 // 销毁线程池
 void thpool_destroy(thread_pool pool){
+    LOG_INFO("thpool_destroy");
     CloseThreadpool(pool->pool);
     free(pool);
 }

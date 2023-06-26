@@ -8,6 +8,7 @@
 #include "thpool.h"
 #include "logger.h"
 #include "setting.h"
+#include "userfile.h"
 #include "dao.h"
 #if defined(_WIN32) || defined(_WIN64)
 #include <winsock2.h>
@@ -34,7 +35,7 @@ int main(int argc, char *argv[]){
 
     // 初始化用户文件
     init_read_file(get_user_file());
-    tasker = thpool_create(10);
+    tasker = thpool_create(12);
 
     // LOG
     init_log(get_log_file(),get_debug_level(),get_is_output_log());
@@ -50,9 +51,10 @@ int main(int argc, char *argv[]){
     // 监听接口
     socket_req_listen();
     
-
+    while(1){
+    }
     thpool_wait(tasker);
-    Sleep(5000);
+    usleep(5000);
     thpool_destroy(tasker);
     // 释放内存
     destroy_dao();

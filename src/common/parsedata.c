@@ -194,9 +194,9 @@ int parse_to_string(const char * buf,char * str,int16* str_len, const char * mes
             while(message[offset] != 0){
                 str[j++] = message[offset++];
                 if(j > 256){
-                LOG_WARN("parse_to_string: domain name too long,drop it!");
-                return -1;
-            }
+                    LOG_WARN("parse_to_string: domain name too long,drop it!");
+                    return -1;
+                }
             }
             // 结束了
             str[j++] = '.';

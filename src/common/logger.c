@@ -10,7 +10,7 @@
 #include <stddef.h>
 
 static list_ops_unit_t msg_queue;
-
+#define DISABLE_MUTI_THREAD
 /*=============线程相关=================*/
 #include <pthread.h>
 typedef pthread_t thread_t;
@@ -166,6 +166,8 @@ void* log_worker(void *arg){
         }
         rwlock_unlock(&log_lock);
         if(node == NULL){
+            //Sleep(100);
+            usleep(100);
             continue;
         }
         linked_list_free_node(node);
