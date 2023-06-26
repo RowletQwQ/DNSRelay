@@ -135,6 +135,7 @@ int32 trie_insert(struct trie_node *root, int8 *key_domin_name, uint16 record_ty
         cur->ops_unit = malloc(sizeof(struct list_ops_unit));
         *cur->ops_unit = linked_list_create();
     } 
+    
     //FIXME 确定下面这个插入的数据是tail？？？
     if (linked_list_insert_head(*cur->ops_unit, (char*)tail, sizeof(struct linked_list_node)) == FAIL) {
         return FAIL;
