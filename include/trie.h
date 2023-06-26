@@ -29,7 +29,7 @@ struct record_info {
     int64 expire_time; // 每条记录会对应一个过期时间
     int8 *domin_name; // 对应的域名
     int32 query_cnt; // 该条记录的查询次数
-    int16 record_len; // 记录数据长度
+    uint16 record_len; // 记录长度
     byte record[256]; // 记录数据
 };
 
@@ -62,7 +62,7 @@ struct trie_node *trie_create();
  * @param ttl 过期时间
  * @return int32 1-成功, 0-失败
  */
-int32 trie_insert(struct trie_node *root, int8 *key_domin_name, uint16 record_type, byte record[256], int16 record_len, int32 ttl);
+int32 trie_insert(struct trie_node *root, int8 *key_domin_name, uint16 record_type, uint16 record_len, byte record[256], int32 ttl);
 
 /**
  * @brief 删除一个对应域名, 返回值: 1-成功, 0-失败

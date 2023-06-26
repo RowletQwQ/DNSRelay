@@ -2,10 +2,10 @@
 #ifndef _LOGGER_H_
 #define _LOGGER_H_
 
-#define LOG_LEVEL_DEBUG 0 //调试信息
+#define LOG_LEVEL_DEBUG 0 //调试信息,输出信息最多
 #define LOG_LEVEL_INFO 1 //一般信息
 #define LOG_LEVEL_WARN 2 //警告信息
-#define LOG_LEVEL_ERROR 3 //错误信息
+#define LOG_LEVEL_ERROR 3 //错误信息,输出信息最少
 
 //声明
 typedef struct thread_pool_t* thread_pool;

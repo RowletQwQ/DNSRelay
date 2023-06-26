@@ -14,10 +14,9 @@ void init_read_file(const char *file_name);
  * @brief 读取本地文件，更新数据库中IP地址
  * 
  * @param buffer 用来存放读取到的数据
- * @param len buffer的长度
  * @return int 读取到的数据条数
  */
-int read_data(struct domin_table_data *buffer, int len);
+int read_data(struct domin_table_data **buffer);
 
 /**
  * @brief 关闭文件

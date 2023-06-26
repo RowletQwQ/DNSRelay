@@ -55,10 +55,8 @@ int main(char argc, char *argv[]){
     
     pthread_join(thread_listen, NULL);
     // pthread_join(thread_manager, NULL);
-    
-    thpool_wait(tasker);
-    thpool_destroy(tasker);
-    
-    free_trie_node(trie_cache);
+    thpool_wait(pool);
+    sleep(5);
+    thpool_destroy(pool);
     return 0;
 }

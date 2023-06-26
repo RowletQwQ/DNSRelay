@@ -13,8 +13,9 @@ typedef struct DNSRecord
 {
     char domin_name[256];//域名
     uint16 record_type;// 记录类型
-    byte record[256]; // 记录数据
     int64 expire_time; // 过期时间
+    uint16 record_len; // 记录长度
+    byte record[256]; // 记录数据
 } DNSRecord;
 
 // 以下是DNS记录的相关数据操作,为外部提供一个透明的接口,隐藏内部的缓存和数据库的实现细节
@@ -22,10 +23,14 @@ typedef struct DNSRecord
 /**
  * @brief 增加一条记录
  * 
- * @param record 记录长度
+ * @param domin_name 域名
+ * @param record_type 记录类型
+ * @param record 记录数据
+ * @param record_len 记录长度
+ * @param ttl 过期时间
  * @return int 成功返回0,失败返回-1
  */
-int add_record(DNSRecord *record);
+int add_record(const char *domin_name, uint16 record_type, byte record[256], uint16 record_len, int32 ttl);
 
 // 删除一条域名对应的所有记录
 /**
@@ -53,11 +58,21 @@ int delete_record_by_type(const char *domin_name, uint16 record_type);
  * 
  * @param domin_name 域名
  * @param record_type 记录类型
- * @param record 记录
+ * @param record 返回值，记录数据
  * @return int 成功返回长度,失败返回0
  */
 int query_record(const char *domin_name, uint16 record_type, DNSRecord *record);
 
+/**
+ * @brief 初始化dao层，包括初始化缓存，数据库，以及读写锁等
+ * 
+ */
+void init_dao();
 
+/**
+ * @brief 释放dao层，包括释放缓存，数据库，以及读写锁等
+ * 
+ */
+void destroy_dao();
 
 #endif

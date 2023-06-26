@@ -188,3 +188,28 @@ int32 linked_list_delete_node(struct list_ops_unit ops_unit, struct linked_list_
 
     return 1;
 }
+
+// 12.将节点移动到链表头部
+int32 linked_list_move_node_to_head(struct list_ops_unit ops_unit, struct linked_list_node *node) {
+    if (ops_unit.head == NULL || ops_unit.tail == NULL) {
+        return 0;
+    }
+
+    if (node == NULL) {
+        return 0;
+    }
+
+    if (node == ops_unit.head || node == ops_unit.tail) {
+        return 0;
+    }
+
+    node->prev->next = node->next;
+    node->next->prev = node->prev;
+
+    node->next = ops_unit.head->next;
+    node->prev = ops_unit.head;
+    ops_unit.head->next->prev = node;
+    ops_unit.head->next = node;
+
+    return 1;
+}

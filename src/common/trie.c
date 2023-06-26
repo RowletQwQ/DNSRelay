@@ -79,7 +79,7 @@ struct trie_node *trie_create() {
 }
 
 // 2.插入域名记录信息, 返回值: 1-成功, 0-失败
-int32 trie_insert(struct trie_node *root, int8 *key_domin_name, uint16 record_type, byte record[256], int16 record_len, int32 ttl) {
+int32 trie_insert(struct trie_node *root, int8 *key_domin_name, uint16 record_type, uint16 record_len, byte record[256], int32 ttl) {
     int8 *domin_name = key_domin_name;
     
     // 如果缓存数量已经达到上限, 就需要先删除链表中最后一个节点
@@ -121,22 +121,22 @@ int32 trie_insert(struct trie_node *root, int8 *key_domin_name, uint16 record_ty
     struct record_info *record_info = (struct record_info *)malloc(sizeof(struct record_info));
     record_info->record_type = record_type; // 记录类型
     record_info->record_len = record_len; // 记录长度
-    memcpy(record_info->record, record, 256); // 记录数据
+    memcpy(record_info->record, record, record_len); //FIXME  记录数据 这里可能会有问题
     record_info->expire_time = time(NULL) + ttl; // 过期时间
     record_info->domin_name = domin_name; // 域名
     record_info->query_cnt = 0; // 查询次数
 
-    // 插入主链表中, 并得到尾节点
-    linked_list_insert_tail(main_ops_unit, (int8 *)record_info, sizeof(struct record_info));
-    struct linked_list_node *tail = linked_list_get_tail(main_ops_unit);
+    // 插入主链表中, 并得到首部节点
+    linked_list_insert_head(main_ops_unit, (char*)record_info, sizeof(struct record_info));
+    struct linked_list_node *tail = linked_list_get_head(main_ops_unit);
      
     // 如果cur->ops_unit为空, 则新建一个链表操作单元
     if (cur->ops_unit == NULL) {
         cur->ops_unit = malloc(sizeof(struct list_ops_unit));
         *cur->ops_unit = linked_list_create();
     } 
-
-    if (linked_list_insert_head(*cur->ops_unit, (int8 *)tail, sizeof(struct linked_list_node)) == FAIL) {
+    //FIXME 确定下面这个插入的数据是tail？？？
+    if (linked_list_insert_head(*cur->ops_unit, (char*)tail, sizeof(struct linked_list_node)) == FAIL) {
         return FAIL;
     }
 
@@ -171,6 +171,8 @@ int32 trie_delete(struct trie_node *root, int8 *key_domin_name, uint16 record_ty
 
     // 然后如果发现没有节点的经过次数变为0, 则说明此时cur下面的指针数组大小是一个以上, 此时需要遍历这个指针数组, 将对应类型删除, 并释放
     delete_record_list_node(*cur->ops_unit, record_type);
+    //FIXME 你返回值呢¿
+    return 1;
 }
 
 int32 delete_record_list_node(struct list_ops_unit ops_unit, uint16 record_type) {
@@ -224,7 +226,7 @@ struct record_info *trie_search(struct trie_node *root, int8 *key_domin_name, ui
         struct record_info *record_info = (struct record_info *)node->data;
         if (record_info->record_type == record_type) {
             // 如果发现这个记录已经过期, 则删除这个记录
-            if (record_info->expire_time <= time(NULL)) {
+            if (record_info->expire_time == -1 && record_info->expire_time <= time(NULL)) {
                 printf("record is expire, delete it\n");
                 printf("domin_name: %s, record_type: %d\n", domin_name, record_type);
                 trie_delete(root, domin_name, record_type);
@@ -233,17 +235,18 @@ struct record_info *trie_search(struct trie_node *root, int8 *key_domin_name, ui
 
             // 当找到这个数据后, 让记录的查询数+1
             record_info->query_cnt++;
-            // 将node这个节点不断向前移动到查询次数比他大的后面
-            while (node->prev != NULL && node->prev != main_ops_unit.head) {
-                struct linked_list_node *prev_node = node->prev;
-                struct record_info *prev_record_info = (struct record_info *)prev_node->data;
-                if (prev_record_info->query_cnt >= record_info->query_cnt) {
-                    break;
-                }
-                // 交换两个节点的数据
-                linked_list_swap_node(node, prev_node);
-                node = node->prev;
-            }
+            // while (node->prev != NULL && node->prev != main_ops_unit.head) {
+            //     struct linked_list_node *prev_node = node->prev;
+            //     struct record_info *prev_record_info = (struct record_info *)prev_node->data;
+            //     if (prev_record_info->query_cnt >= record_info->query_cnt) {
+            //         break;
+            //     }
+            //     // 交换两个节点的数据
+            //     linked_list_swap_node(node, prev_node);
+            //     node = node->prev;
+            // }
+            // 查询后直接把这个节点移动到链表头部, 利用LRU算法
+            linked_list_move_node_to_head(main_ops_unit, node);
             return record_info;
         }
         cur_node = cur_node->next;
