@@ -48,7 +48,7 @@ void taskworker(struct task * task_){
 }
 
 // 创建完整链式请求,创建req的地方
-int link_query_reqs(struct task * task_){
+int link_query_reqs(struct task * task_) {
     // 解析报文头
     struct dns_header *dnshdr = (struct dns_header *)task_->message;
     // 解析请求数目

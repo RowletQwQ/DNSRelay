@@ -82,17 +82,6 @@ struct trie_node *trie_create() {
 int32 trie_insert(struct trie_node *root, int8 *key_domin_name, uint16 record_type, uint16 record_len, byte record[256], int32 ttl) {
     int8 *domin_name = key_domin_name;
     
-    // 如果缓存数量已经达到上限, 就需要先删除链表中最后一个节点
-    if (cache_num(root) == MAX_CACHE_SIZE) {
-        linked_list_node *last = linked_list_delete_tail(main_ops_unit);
-        if (sizeof(struct record_info) == last->data_len) {
-            struct record_info *record_info = (struct record_info *)last->data;
-            trie_delete(root, record_info->domin_name, record_info->record_type);
-        } else {
-            return FAIL;
-        }
-    }
-
     struct trie_node *cur = root;
     // 遍历域名
     while (*key_domin_name != '\0') {
@@ -117,6 +106,43 @@ int32 trie_insert(struct trie_node *root, int8 *key_domin_name, uint16 record_ty
         key_domin_name++;
     }
 
+    // 先遍历之前的域名信息, 如果发现之前已经存有相同的类型, 则比对他们的过期时间
+    if (cur->ops_unit != NULL) {
+        linked_list_node *cur_node = cur->ops_unit->head->next;
+        while (cur_node != cur->ops_unit->tail) {
+            assert(cur_node->data_len == sizeof(struct linked_list_node));
+            linked_list_node *data_ptr = (linked_list_node *)cur_node->data;
+            assert(data_ptr->data_len == sizeof(struct record_info));
+            struct record_info *record_info_ = (struct record_info *)data_ptr->data;
+            // 如果发现record_info_的记录类型跟插入的类型一样
+            if (record_info_->record_type == record_type) {
+                int8 *tmp_domin_name = domin_name;
+                struct trie_node *cur_tmp = root;
+                while (*tmp_domin_name != '\0') {
+                    int8 c = *tmp_domin_name;
+                    int index = trans_char_to_index(c);
+                    cur_tmp = cur_tmp->next[index];
+                    cur_tmp->through_cnt--;
+                }
+                if (ttl + time(NULL) <= record_info_->expire_time) {
+                    // 如果发现插入的过期时间比原来的过期时间还早, 则不执行插入
+                    return SUCCESS;
+                } else {
+                    // 删除主链表中的节点
+                    linked_list_delete_node(main_ops_unit, data_ptr);
+                    linked_list_free_node(data_ptr);   
+
+                    // 删除cur->ops_unit中节点
+                    linked_list_delete_node(*cur->ops_unit, cur_node);
+                    linked_list_free_node(cur_node);
+                    break;
+                }
+            }
+            cur_node = cur_node->next;
+        }
+    }
+
+
     // 此时cur指向最后一个节点, 此时需要将对应的ip地址信息插入到链表中
     struct record_info *record_info = (struct record_info *)malloc(sizeof(struct record_info));
     record_info->record_type = record_type; // 记录类型
@@ -138,6 +164,18 @@ int32 trie_insert(struct trie_node *root, int8 *key_domin_name, uint16 record_ty
     // 此处使用了指针嵌套
     if (linked_list_insert_head(*cur->ops_unit, (char*)tail, sizeof(struct linked_list_node)) == FAIL) {
         return FAIL;
+    }
+
+
+    // 如果缓存数量已经达到上限, 就需要先删除链表中最后一个节点
+    while (cache_num(root) > MAX_CACHE_SIZE) {
+        linked_list_node *last = linked_list_delete_tail(main_ops_unit);
+        if (sizeof(struct record_info) == last->data_len) {
+            struct record_info *record_info = (struct record_info *)last->data;
+            trie_delete(root, record_info->domin_name, record_info->record_type);
+        } else {
+            return FAIL;
+        }
     }
 
     return SUCCESS;
