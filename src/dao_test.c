@@ -30,6 +30,17 @@ int main(){
         int ret = add_record(buffer[i].domin_name, buffer[i].record_type, buffer[i].record,256,30);
         if(ret == -1){
             LOG_ERROR("dao_insert error");
+        }else{
+            char ip[INET6_ADDRSTRLEN] = {0};
+            if(buffer[i].record_type == A){
+                inet_ntop(AF_INET, buffer[i].record, ip, INET_ADDRSTRLEN);
+            }else if(buffer[i].record_type == AAAA){
+                inet_ntop(AF_INET6, buffer[i].record, ip, INET6_ADDRSTRLEN);
+            }else{
+            //CNAME or NS
+                strcpy(ip, (char*)buffer[i].record);
+            }
+            LOG_INFO("dao_insert success,domain:%s,record_type:%d,record:%s",buffer[i].domin_name,buffer[i].record_type,ip);
         }
     }
     //调用dao层接口查询
