@@ -2,7 +2,7 @@
 build/
 # Prerequisites
 *.d
-
+*.db
 # Object files
 *.o
 *.ko

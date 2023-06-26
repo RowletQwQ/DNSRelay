@@ -32,7 +32,7 @@ void socket_init();
  * @param sock 套接字描述符
  */
 
-void socket_close();
+void socket_close(int sock);
 
 
 /**
@@ -68,7 +68,15 @@ int udp_send(int sockfd, const void *buf, int len,
 int udp_recv(int sockfd, void *buf, int len, 
              struct sockaddr *src_addr, int *addrlen);
 
-
+/**
+ * @brief 将报文发送给客户端
+ * 
+ * @param message 报文
+ * @param len 报文长度
+ * @param src_addr 客户端地址
+ * @param addrlen 客户端地址长度
+ * @return int 
+ */
 int send_to_client(char *message,int len,struct sockaddr *src_addr, int addrlen);
 
 

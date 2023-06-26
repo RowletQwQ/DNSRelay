@@ -8,6 +8,16 @@
 #define DAO_SUCCESS 0
 #define DAO_FAILURE -1
 
+
+// 定义记录类型
+#define A 1
+#define AAAA 28
+#define CNAME 5
+#define NS 2
+#define MX 15
+#define TXT 16
+
+
 //声明DNS记录的数据结构
 typedef struct DNSRecord
 {
