@@ -73,8 +73,8 @@ logger.o: $(PATH_COMMON)logger.c $(PATH_HEADERS)logger.h
 linked_list.o: $(PATH_COMMON)linked_list.c $(PATH_HEADERS)linked_list.h
 	$(CC) $(CFLAGS) -I$(PATH_HEADERS) -c $(PATH_COMMON)linked_list.c -o linked_list.o
 
-thpool.o: $(PATH_COMMON)thpool.c $(PATH_HEADERS)thpool.h
-	$(CC) $(CFLAGS) -I$(PATH_HEADERS) -c $(PATH_COMMON)thpool.c -o thpool.o
+thpool.o: $(PATH_SPEC)thpool.c $(PATH_HEADERS)thpool.h
+	$(CC) $(CFLAGS) -I$(PATH_HEADERS) -c $(PATH_SPEC)thpool.c -o thpool.o
 
 sqlite3.o: $(PATH_COMMON)sqlite3.c $(PATH_HEADERS)sqlite3.h
 	$(CC) $(CFLAGS) -I$(PATH_HEADERS) -c $(PATH_COMMON)sqlite3.c -o sqlite3.o
