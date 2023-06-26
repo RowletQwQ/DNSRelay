@@ -1,6 +1,6 @@
 CC = gcc
-CFLAGS =  -Wpedantic
-# -Wall -Wextra -Werror
+CFLAGS = -W -Wpedantic -Wall -Wextra -Werror
+# 
 PATH_SRC = src/
 PATH_COMMON = $(PATH_SRC)common/
 PATH_HEADERS = include/
