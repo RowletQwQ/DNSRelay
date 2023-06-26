@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "logger.h"
+
 
 // 根据系统引入不同的头文件
 #ifdef _WIN32
@@ -15,18 +15,23 @@
 #endif
 
 int parse_to_req(const char *buffer,struct req * req_,const char* message) {
-    
-    // 申请内存
-    req_->req_domain = (char*)malloc(sizeof(char) * 256);
-    // 有改动
+
     int16 str_len = 0;
     int i = parse_to_string(buffer,req_->req_domain,&str_len,message);
     
-    req_->domain_len = (int8)str_len;
+    if(str_len > 255){
+        printf("domain too long\n");
+        return -1;
+    }
+
+    req_->domain_len = (unsigned char) str_len;
+    
     // 读取qtype 2字节
     req_->qtype = ntohs(*(uint16 *)(buffer + i ));
+    
     // 读取qclass 2字节
     req_->qclass = ntohs(*(uint16 *)(buffer + i + 2));
+
     return i + 3;
 }
 
@@ -189,14 +194,17 @@ int parse_to_reqs(struct task * task_){
 
 // 把buf解析成字符串域名类型
 int parse_to_string(const char * buf,char * str,int16* str_len, const char * message){
-    
+
     // 根据buf填充str 但是存在各种指针，需要特征判断，当下是按照指针解析还是数字解析
-    int i = 0, j = 0;
+    int i = 0;
+    int16 j = 0;
     while (buf[i] != 0) {
+        
         if(i > 256){
-            LOG_ERROR("parse_to_string: domain name too long!\n");
+            printf("parse_to_req: domain name too long!\n");
             return -1;
         }
+        
         // 判断是指针还是长度
         if(buf[i] & 0xc0){
             // 指针
@@ -219,18 +227,17 @@ int parse_to_string(const char * buf,char * str,int16* str_len, const char * mes
             }
             
             if(j > 256){
-                LOG_ERROR("parse_to_string: domain name too long!\n");
+                printf("parse_to_req: domain name too long!\n");
                 return -1;
             }
-            // 结束了,加上最后的'\0'
+            // 结束了
             str[j++] = '.';
             break;
         }else{
-
             // 长度 是数字
-            char len = buf[i];
-
-            for(char k = 0;k < len;k++){
+            int len = buf[i];
+            
+            for(int k = 0;k < len;k++){
                 str[j++] = buf[++i];
             }
 
@@ -239,13 +246,13 @@ int parse_to_string(const char * buf,char * str,int16* str_len, const char * mes
         }
     }
     *str_len = j;
-    str[j-1] = '\0'; 
-    
+    str[j-1] = '\0'; // 去除最后一个'.'
     return i + 1;
 }
 
 int parse_to_data(const char *answer,struct req * req_,const char * message){
-
+    // 报文中的数据到最后才销毁，所以指针引用不用再次申请内存
+    
     // 解析name
     int16 * name = (int16 *)answer;
     
@@ -253,10 +260,10 @@ int parse_to_data(const char *answer,struct req * req_,const char * message){
     // 判断是否是指针
     
     int len = 0;
-    if(pointer & 0x0000c000){
-        req_->domain_pointer = pointer & 0x00003fff;
+    if(pointer & 0xc000){
+        req_->domain_pointer = pointer & 0x3fff;
         
-        LOG_DEBUG("pointer offset: %d\n",req_->domain_pointer);
+        printf("%d\n",req_->domain_pointer);
 
         len = 2;
         
@@ -272,14 +279,13 @@ int parse_to_data(const char *answer,struct req * req_,const char * message){
         req_->domain_pointer = 0;
         req_->req_domain = (char*)malloc(sizeof(char) * 256);
         int16 str_len = 0;
-        len = parse_to_string(answer,req_->req_domain,&str_len,message) ;
-        if(len == -1){
+        if(len = parse_to_string(answer,req_->req_domain,&str_len,message) == -1){
             return -1;
         }
         req_->domain_len = (int8)str_len;
     }
-
     // 解析type
+    
     int16 * type = (int16 *)(answer + len);
     req_->rtype = ntohs(*type);
     
@@ -299,60 +305,66 @@ int parse_to_data(const char *answer,struct req * req_,const char * message){
     // 解析rdata
     char * rdata = (char *)(answer + len + 10);
     req_->rdata = rdata;
-    req_->rdata = (char *)malloc(sizeof(char) * 256);
-    // 根据rdata的类型解析,读取rdata的长度
+
+    // 根据rdata的类型解析
     if(req_->rtype == 1){
-        // A 读取的时字节
-        req_->rdata_len = 4;
-        memcpy(req_->rdata,rdata,4);
-        // if(inet_ntop(AF_INET,rdata,req_->rdata,16) == NULL){
-        //     LOG_ERROR("inet_ntop error\n");
-        //     return -1;
-        // }
+        // A
+        req_->rdata_len = 16;
+        req_->rdata = (char *)malloc(sizeof(char) * 16);
+        if(inet_ntop(AF_INET,rdata,req_->rdata,16) == NULL){
+            printf("parse_to_req: inet_ntop failed!\n");
+            return -1;
+        }
     }else if(req_->rtype == 5){
         // CNAME
+        req_->rdata = (char *)malloc(sizeof(char) * 256);
         if(parse_to_string(rdata,req_->rdata,&req_->rdata_len,message) == -1){
-            LOG_ERROR("parse_to_string error\n");
             return -1;
         }
         req_->rdata_len = strlen(req_->rdata);
     }else if(req_->rtype == 15){
         // MX
-        
+        req_->rdata = (char *)malloc(sizeof(char) * 256);
         if(parse_to_string(rdata,req_->rdata,&req_->rdata_len,message) == -1){
             return -1;
         }
         req_->rdata_len = strlen(req_->rdata);
     }else if(req_->rtype == 2){
         // NS
-        
+        req_->rdata = (char *)malloc(sizeof(char) * 256);
         if(parse_to_string(rdata,req_->rdata,&req_->rdata_len,message) == -1){
             return -1;
         }
         req_->rdata_len = strlen(req_->rdata);
     }else if(req_->rtype == 6){
         // SOA
-        
+        req_->rdata = (char *)malloc(sizeof(char) * 256);
         if(parse_to_string(rdata,req_->rdata,&req_->rdata_len,message) == -1){
             return -1;
         }
         req_->rdata_len = strlen(req_->rdata);
     }else if(req_->rtype == 12){
         // PTR
-        
+        req_->rdata = (char *)malloc(sizeof(char) * 256);
         if(parse_to_string(rdata,req_->rdata,&req_->rdata_len,message) == -1){
             return -1;
         }
         req_->rdata_len = strlen(req_->rdata);
     }else if(req_->rtype == 16){
+        // TXT
+        req_->rdata = (char *)malloc(sizeof(char) * 256);
         if(parse_to_string(rdata,req_->rdata,&req_->rdata_len,message) == -1){
             return -1;
         }
         req_->rdata_len = strlen(req_->rdata);
     }else if(req_->rtype == 28){
         // AAAA
-        req_->rdata_len = 16;
-        memcpy(req_->rdata,rdata,16);
+        req_->rdata_len = 256;
+        req_->rdata = (char *)malloc(sizeof(char) * 256);
+        if(inet_ntop(AF_INET6,rdata,req_->rdata,256) == NULL){
+            printf("parse_to_req: inet_ntop failed!\n");
+            return -1;
+        }
     }
     
     // 返回这个answer的长度
@@ -361,6 +373,8 @@ int parse_to_data(const char *answer,struct req * req_,const char * message){
 
 int parse_to_netstr(char * astr,char * nstr){
     char * old_nstr = nstr;
+    int len = 0;
+    // 不等于零，并且大小不超过a_len
     while (*astr != '\0') {
         // 获取域名中的下一个标签（以“.”分隔）
         char *next_label = strchr(astr, '.');
@@ -372,15 +386,20 @@ int parse_to_netstr(char * astr,char * nstr){
         // 计算标签的长度，并将其添加到DNS报文中
         int label_len = next_label - astr;
         *nstr++ = label_len;
-
+        len++;
         // 将标签的字符添加到DNS报文中
         for (int i = 0; i < label_len; i++) {
             *nstr++ = *astr++;
+            len++;
         }
 
         // 如果还有更多的标签，则在标签之间添加一个“.”（长度为0）
         if (*next_label == '.') {
             astr++;
+        }
+        if(len > 255){
+            printf("parse_to_netstr: len > 255!\n");
+            return -1;
         }
     }
     // 封最后的0
@@ -389,15 +408,24 @@ int parse_to_netstr(char * astr,char * nstr){
 }
 
 int parse_to_rdata(struct req* req_){
-    // 假定请求添加域名和添加查询内容时已经分配了rdata最大内存
+    
     switch(req_->rtype){
             case 1:
+                inet_pton(AF_INET, req_->rdata, req_->rdata);
+                req_->rdata_len = 4;
                 break;
             case 28:
+                inet_pton(AF_INET6, req_->rdata, req_->rdata);
+                req_->rdata_len = 16;
                 break;
             case 5:
                 char *netstr = (char *)malloc(sizeof(char) * 256);
                 int netstr_len = parse_to_netstr(req_->rdata,netstr);
+                if(netstr_len == -1){
+                    printf("parse_to_rdata: parse_to_netstr failed!\n");
+                    free(netstr);
+                    return -1;
+                }
                 memcpy(req_->rdata,netstr,netstr_len);
                 // 释放内存
                 free(netstr);

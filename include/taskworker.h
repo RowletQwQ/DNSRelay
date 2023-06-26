@@ -5,12 +5,18 @@
 #ifndef _TASKWORKER_H_
 #define _TASKWORKER_H_
 
+#ifdef _WIN32
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#else
+#include <arpa/inet.h>
+#endif
 
 #define QUERY_FAIL -1
 #define MAX_REQLINK_NUM 5
 
 struct task{
-    char * addr; // 任务地址
+    struct sockaddr addr; // 任务地址
     int sock_len; // 套接字描述符
     char* message; // 报文
     int m_len; // 报文长度
@@ -23,7 +29,7 @@ struct req{
     char* req_domain; //请求域名
     int16 domain_pointer; //域名指针
     int8 domain_len; //最大255
-    int8 qtype; //请求类型  
+    int8 qtype; //请求类型
     int16 qclass; //请求类
 
     int8 rtype; //响应类型
@@ -38,7 +44,6 @@ struct resp{
     char * rdata; //响应数据
     int16 rdata_len; //响应数据长度
     int32 ttl; //生存时间
-    
 };
 /**
  * @brief 处理一个任务池中的任务
@@ -62,7 +67,7 @@ void task_query(struct task * task_);
 /**
  * @brief 监听任务池，有任务则处理 需要多线程处理
  */
-void taskmanager(void * arg);
+void taskmanager();
 
 /**
  * @brief 肩负查询工作，查询缓存和数据库
@@ -78,7 +83,7 @@ int query_req(struct req * req_);
  * @return 0代表成功 -1代表失败
  */
 
-int throw_to_dns (struct task* task_);
+int throw_to_dns (struct task* task_,char *message,int m_len);
 
 /**
  * @brief 在本地查询数据 填充到req里面

@@ -4,59 +4,39 @@
 #include "socket.h"
 #include "taskworker.h"
 #include "linked_list.h"
-#include "thpool.h"
-
 #include "trie.h"
-#include "logger.h"
+#include "thpool.h"
 // 任务池
+thread_pool tasker;
 struct list_ops_unit task_pool;
-// 字典树缓存
 struct trie_node * trie_cache;
 int task_free_flag = 0;
 
 
-int main(){
-    // 初始化日志
-    thread_pool log_worker = thpool_create(5);
-    init_log("test.log",LOG_LEVEL_DEBUG,1,log_worker);
-    // 解析命令行参数 读文件
 
-    // 初始化字典树
-    trie_cache = trie_create();
-    LOG_INFO("tire_create success\n");
+int main(char argc, char *argv[]){
+    // 解析命令行参数 读文件
     
     // 创建任务池
     task_pool = linked_list_create();
-    LOG_INFO("task_pool create success\n");
+
+    printf("task_pool create success\n");
     
+    trie_cache = trie_create();
+    printf("trie_cache create success\n");
+
+    // 初始化socket IP可以指定
     socket_init();
-    LOG_INFO("socket_init success\n");
-    // // 创建先乘除
-    // thread_pool pool = thpool_create(2);
-    // LOG_INFO("thread_pool create success\n");
+
+    printf("socket_init() success\n");
     
-    // // 创建线程运行下面两个程序
-    // int ret;
-    
-    // ret = thpool_add_work(pool, socket_req_listen, NULL);
-    // if (ret != 0) {
-    //     printf("Error creating thread: %d\n", ret);
-    //     exit(EXIT_FAILURE);
-    // }
-    // LOG_INFO("socket_req_listen success\n");
+    // 创建线程运行下面两个程序
+    pthread_t thread_listen;
+    // pthread_t thread_manager;
 
-
-    // ret = thpool_add_work(pool, taskmanager, NULL);
-    // if (ret != 0) {
-    //     printf("Error creating thread: %d\n", ret);
-    //     exit(EXIT_FAILURE);
-    // }
-    // // 等待线程池结束
-    // thpool_wait(pool);
-    // thpool_destroy(pool);
-
-
-    pthread_t thread_listen,thread_manager;
+    // 创建线程池
+    tasker = thpool_create(10);
+    printf("tasker create success\n");
 
     int ret;
 
@@ -71,11 +51,14 @@ int main(){
     //     printf("Error creating thread: %d\n", ret);
     //     exit(EXIT_FAILURE);
     // }
-
+    
+    
     pthread_join(thread_listen, NULL);
     // pthread_join(thread_manager, NULL);
     
-    // 释放字典树
+    thpool_wait(tasker);
+    thpool_destroy(tasker);
+    
     free_trie_node(trie_cache);
     return 0;
 }
