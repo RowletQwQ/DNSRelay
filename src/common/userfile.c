@@ -17,10 +17,14 @@
 static FILE *fp = NULL;
 
 void init_read_file(const char *file_name) {
-    fp = fopen(file_name, "r");
+    fp = fopen(file_name, "r+");
     if (fp == NULL) {
-        LOG_ERROR("userfile:open file failed");
-        exit(1);
+        fp = fopen(file_name, "w+");
+        if (fp == NULL) {
+            LOG_ERROR("userfile:open file failed");
+            exit(1);
+        }
+        fp = fopen(file_name, "r+");
     }
 }
 void init_write_file(const char *file_name) {
