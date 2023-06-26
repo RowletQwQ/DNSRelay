@@ -3,6 +3,98 @@
 #include <stddef.h>
 #include <stdio.h>
 
+// 把用户自定义的域名信息插入到数据库中
+static int32 insert_user_setting_domin_info();
+
+// 把用户自定义的域名信息插入到数据库中
+static int32 insert_user_setting_domin_info() {
+    // 创建一个domin_table_data结构体指针得到数据
+    struct domin_table_data *domin_table_data_ptr = NULL;
+    int len = read_data(&domin_table_data_ptr);
+
+    // 先删除数据库中expire_time为-1的值, 也就是用户自定义的域名信息
+    char *delete_sql = "DELETE FROM domin_table WHERE expire_time = -1;";
+    char *err_msg = NULL;
+    sqlite3 *db = NULL;
+    int32 ret = sqlite3_open(DB_NAME, &db);
+    if (ret != SQLITE_OK) {
+        fprintf(stdout, "open db failed\n");
+        sqlite3_close(db);
+        return FAIL;
+    }
+    ret = sqlite3_exec(db, delete_sql, NULL, NULL, &err_msg);
+    if (ret != SQLITE_OK) {
+        fprintf(stdout, "delete failed\n");
+        sqlite3_close(db);
+        return FAIL;
+    }
+
+    // 插入数据
+    char *insert_sql = "INSERT INTO domin_table(domin_name, record_type, record, record_len, expire_time) VALUES(?, ?, ?, ?, ?);";
+    sqlite3_stmt *stmt = NULL;
+    ret = sqlite3_prepare_v2(db, insert_sql, -1, &stmt, NULL);
+    if (ret != SQLITE_OK) {
+        fprintf(stdout, "prepare failed\n");
+        sqlite3_close(db);
+        return FAIL;
+    }
+
+    // 绑定数据
+    for (int i = 0; i < len; i++) {
+        ret = sqlite3_bind_text(stmt, 1, domin_table_data_ptr[i].domin_name, -1, NULL);
+        if (ret != SQLITE_OK) {
+            fprintf(stdout, "bind domin_name failed\n");
+            sqlite3_close(db);
+            return FAIL;
+        }
+        ret = sqlite3_bind_int(stmt, 2, domin_table_data_ptr[i].record_type);
+        if (ret != SQLITE_OK) {
+            fprintf(stdout, "bind record_type failed\n");
+            sqlite3_close(db);
+            return FAIL;
+        }
+        ret = sqlite3_bind_blob(stmt, 3, domin_table_data_ptr[i].record, domin_table_data_ptr[i].record_len, NULL);
+        if (ret != SQLITE_OK) {
+            fprintf(stdout, "bind record failed\n");
+            sqlite3_close(db);
+            return FAIL;
+        }
+        ret = sqlite3_bind_int(stmt, 4, domin_table_data_ptr[i].record_len);
+        if (ret != SQLITE_OK) {
+            fprintf(stdout, "bind record_len failed\n");
+            sqlite3_close(db);
+            return FAIL;
+        }
+        ret = sqlite3_bind_int64(stmt, 5, domin_table_data_ptr[i].expire_time);
+        if (ret != SQLITE_OK) {
+            fprintf(stdout, "bind expire_time failed\n");
+            sqlite3_close(db);
+            return FAIL;
+        }
+
+        // 执行插入
+        ret = sqlite3_step(stmt);
+        if (ret != SQLITE_DONE) {
+            fprintf(stdout, "insert failed\n");
+            sqlite3_close(db);
+            return FAIL;
+        }
+
+        // 重置
+        ret = sqlite3_reset(stmt);
+        if (ret != SQLITE_OK) {
+            fprintf(stdout, "reset failed\n");
+            sqlite3_close(db);
+            return FAIL;
+        }
+    }
+
+    // 释放资源
+    sqlite3_finalize(stmt);
+    sqlite3_close(db);
+
+    return SUCCESS;
+}
 
 // 1.初始化数据库, 建表
 int32 init_db() {
@@ -34,6 +126,13 @@ int32 init_db() {
 
     // 关闭数据库
     sqlite3_close(db);
+
+    // 把用户自定义的域名信息插入到数据库中
+    if (insert_user_setting_domin_info() == SUCCESS) {
+        fprintf(stdout, "insert user setting domin info success\n");
+    } else {
+        fprintf(stdout, "insert user setting domin info failed\n");
+    }
 
     return SUCCESS;
 }
@@ -83,8 +182,8 @@ struct record_dto *query_by_domin_name(const char *domin_name, uint16 record_typ
     dto->expire_time = sqlite3_column_int64(stmt, 2);
     memcpy(dto->record, sqlite3_column_blob(stmt, 0), dto->record_len);
 
-    // 如果发现过期, 则删除
-    if (dto->expire_time < time(NULL)) {
+    // 如果发现过期, 则删除, 但这里需要保证过期时间不为-1, -1表示永不过期
+    if (dto->expire_time != -1 && dto->expire_time < time(NULL)) {
         char *delete_sql = "DELETE FROM domin_table WHERE domin_name = ? AND record_type = ?;";
         sqlite3_stmt *stmt = NULL;
         ret = sqlite3_prepare_v2(db, delete_sql, -1, &stmt, NULL);
