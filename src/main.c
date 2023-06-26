@@ -33,7 +33,7 @@ int main(int argc, char *argv[]){
     init_read_file(get_user_file());
     tasker = thpool_create(10);
     // LOG
-    init_log(get_log_file(),get_debug_level(),0);
+    init_log(get_log_file(),get_debug_level(),get_is_output_log());
 
     // 初始化DAO层
     init_dao();
@@ -48,5 +48,8 @@ int main(int argc, char *argv[]){
     thpool_wait(tasker);
     Sleep(5000);
     thpool_destroy(tasker);
+    // 释放内存
+    destroy_dao();
+    close_log();
     return 0;
 }

@@ -123,6 +123,7 @@ int32 trie_insert(struct trie_node *root, int8 *key_domin_name, uint16 record_ty
                     int index = trans_char_to_index(c);
                     cur_tmp = cur_tmp->next[index];
                     cur_tmp->through_cnt--;
+                    tmp_domin_name++;
                 }
                 if (ttl + time(NULL) <= record_info_->expire_time) {
                     // 如果发现插入的过期时间比原来的过期时间还早, 则不执行插入

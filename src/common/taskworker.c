@@ -19,27 +19,27 @@ void taskworker(struct task * task_){
 
     if(query_state == QUERY_FAIL){
         // 快速响应
-        printf("query fail\n");
+        LOG_INFO("query fail");
 
         // 只更新message
         int offset = task_->m_len;
         int res = talk_to_dns(task_->message,task_->m_len,task_->addr,task_->sock_len);
         
         if(res == -1){
-            printf("throw_to_dns failed!\n");
+            LOG_WARN("throw_to_dns failed!");
             // 销毁内存
         }else{
             update_db(task_,offset); // 更新数据库
         }
 
     }else{
-        printf("==============local query success=========\n");
+        LOG_INFO("==============local query success=========");
         // 查询成功
         parse_to_dnsres(task_);
         // 更新响应包
-        printf("\nsento_client\n");
+        LOG_INFO("sento_client");
         // 发送响应包
-        printf("%d\n",send_to_client(task_->message,task_->m_len,&task_->addr,task_->sock_len));
+        LOG_INFO("%d",send_to_client(task_->message,task_->m_len,&task_->addr,task_->sock_len));
     };
 
     // 释放资源
@@ -75,14 +75,14 @@ int link_query_reqs(struct task * task_) {
         int res_toreq = parse_to_req(buf + offset,&req_,(const char *)task_->message);
         
         if(res_toreq == -1){
-            printf("parse_to_req failed!\n");
+            LOG_ERROR("parse_to_req failed!");
             return -1;
         }
 
-        printf("================req==============\n");
-        printf("req_domain:%s\n",req_.req_domain);
-        printf("req_domain_len:%d\n",req_.domain_len);
-        printf("qtype %d\n",req_.qtype);
+        LOG_INFO("================req==============");
+        LOG_INFO("req_domain:%s",req_.req_domain);
+        LOG_INFO("req_domain_len:%d",req_.domain_len);
+        LOG_INFO("qtype %d",req_.qtype);
 
         // 更新偏移量
         offset += res_toreq;
@@ -103,13 +103,13 @@ int link_query_reqs(struct task * task_) {
         int res_tordata = parse_to_rdata(&req_);
         
         if(res_tordata == -1){
-            printf("parse_to_rdata failed!\n");
+            LOG_ERROR("parse_to_rdata failed!");
             return -1;
         }
         
         // 添加到链表中
         if(linked_list_insert_tail(task_->reqs, (int8 *)&req_,sizeof(struct req)) == -1){
-            printf("Insert req failed!\n");
+            LOG_ERROR("Insert req failed!");
             return -1;
         }
 
@@ -126,7 +126,7 @@ int link_query_reqs(struct task * task_) {
                 return -1;
             }else if(resp_type == req_.qtype){
                 // 查询成功
-                printf("query success\n");
+                LOG_INFO("query success");
                 break;
             }else if(resp_type == 5){
                 circle++;
@@ -157,13 +157,13 @@ int link_query_reqs(struct task * task_) {
                 //格式化
                 int to_rdata_state = parse_to_rdata(&req_);
                 if(to_rdata_state == -1){
-                    printf("parse_to_rdata failed!\n");
+                    LOG_ERROR("parse_to_rdata failed!");
                     return -1;
                 }
 
                 // 添加到链表中
                 if(linked_list_insert_tail(task_->reqs, (int8 *)&req_,sizeof(struct req)) == -1){
-                    printf("Insert req failed!\n");
+                    LOG_ERROR("Insert req failed!");
                     return -1;
                 }
 
@@ -206,22 +206,22 @@ void task_free(struct task * task_){
 int query_req(struct req * req_){
     
     DNSRecord record;
-    printf("=====QUERY: req_domain:%s=======\n",req_->req_domain);
+    LOG_INFO("=====QUERY: req_domain:%s=======",req_->req_domain);
 
     int res = query_record(req_->req_domain,req_->qtype,&record);
     
     if(res != DAO_FAILURE){
-        printf("==============query in local=============\n");
+        LOG_INFO("==============query in local=============");
         // 打印消息
-        printf("rdata:%s\n",record.record);
-        printf("rdata_len:%d\n",record.record_len);
+        LOG_INFO("rdata:%s",record.record);
+        LOG_INFO("rdata_len:%d",record.record_len);
     }else{
         // 查CNAME
         res = query_record(req_->req_domain,CNAME,&record);
         if(res != DAO_FAILURE){
-            printf("==============query in local=============\n");
-            printf("rdata:%s\n",record.record);
-            printf("rdata_len:%d\n",record.record_len);
+            LOG_INFO("==============query in local=============");
+            LOG_INFO("rdata:%s",record.record);
+            LOG_INFO("rdata_len:%d",record.record_len);
         }
     }
     
@@ -257,7 +257,7 @@ int update_db(struct task * task_,int offset){
         // 自己申请,一段空间存放，其他的直接引用    
         offset += parse_to_data(task_->message + offset,&req_,task_->message);
         if(offset == -1){
-            printf("parse_to_data failed!\n");
+            LOG_WARN("parse_to_data failed!");
             return -1;
         }
 
@@ -266,19 +266,20 @@ int update_db(struct task * task_,int offset){
         req_.rdata[req_.rdata_len] = '\0';
         
         // 添加到缓存
-        printf("======+++++++++dns data++++++++======\n");
-        printf("req_ domain_name %s\n",req_.req_domain);
+        LOG_INFO("======+++++++++dns data++++++++======");
+        LOG_INFO("req_ domain_name %s",req_.req_domain);
         
-        printf("req_ rdata_len %d\n",req_.rdata_len);
-        printf("req_ ttl %d\n",req_.ttl);
-        printf("req_ type %d\n",req_.rtype);
+        LOG_INFO("req_ rdata_len %d",req_.rdata_len);
+        LOG_INFO("req_ ttl %d",req_.ttl);
+        LOG_INFO("req_ type %d",req_.rtype);
         if(req_.domain_len > 0 && req_.domain_len < 256 && req_.rdata_len > 0 && req_.rdata_len < 256 && req_.rtype > 0){
             // 判定数据插入条件
             if(add_record(req_.req_domain,req_.rtype,req_.rdata,req_.rdata_len,req_.ttl) == DAO_FAILURE){
                 LOG_ERROR("update_db : add_record failed!");
             }else{
-                printf("update_db : add_record %s success!\n",req_.req_domain);
+                LOG_INFO("update_db : add_record %s success!",req_.req_domain);
             }
         }
     }
+    return 0;
 }

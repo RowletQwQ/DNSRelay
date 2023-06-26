@@ -174,7 +174,7 @@ struct record_dto *query_by_domin_name(const char *domin_name, uint16 record_typ
     // 执行查询
     ret = sqlite3_step(stmt);
     if (ret != SQLITE_ROW) {
-        LOG_ERROR("step failed");
+        LOG_ERROR("step failed when query");
         sqlite3_close(db);
         return NULL;
     }
@@ -208,7 +208,7 @@ struct record_dto *query_by_domin_name(const char *domin_name, uint16 record_typ
         // 执行删除
         ret = sqlite3_step(stmt);
         if (ret != SQLITE_DONE) {
-            LOG_ERROR("step failed");
+            LOG_ERROR("step failed when delete");
             sqlite3_close(db);
             return NULL;
         }
@@ -296,7 +296,7 @@ int32 insert_domin_info(const char *domin_name, uint16 record_type, byte record[
     // 执行插入
     ret = sqlite3_step(stmt);
     if (ret != SQLITE_DONE) {
-        LOG_ERROR("step failed");
+        LOG_ERROR("step failed when insert");
         sqlite3_close(db);
         return FAIL;
     }
@@ -336,7 +336,7 @@ int32 delete_domin_info(const char *domin_name, uint16 record_type) {
     // 执行删除
     ret = sqlite3_step(stmt);
     if (ret != SQLITE_DONE) {
-        LOG_ERROR("step failed");
+        LOG_ERROR("step failed when delete");
         sqlite3_close(db);
         return FAIL;
     }

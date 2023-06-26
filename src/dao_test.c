@@ -38,7 +38,7 @@ void add_task(void* args){
         }
 }
 int main(){
-    init_log("log.txt", LOG_LEVEL_DEBUG, 1, NULL);
+    init_log("log.txt", LOG_LEVEL_DEBUG, 1);
     init_read_file("userfile.txt");
     init_dao();
     struct domin_table_data *buffer = NULL;
@@ -78,5 +78,6 @@ int main(){
     free(buffer);
     free(record);
     destroy_dao();
+    close_log();
     return 0;
 }

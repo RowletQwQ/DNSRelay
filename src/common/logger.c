@@ -9,7 +9,6 @@
 #include <assert.h>
 #include <stddef.h>
 
-
 static list_ops_unit_t msg_queue;
 
 /*=============线程相关=================*/
@@ -117,9 +116,7 @@ void write_log(int level, const char *format, ...){
         default:
             break;
     }
-    if(std_status == 1){
-        printf("%s\n", log_str);
-    }
+    
     //随后将日志字符串传入线程池
 #ifndef DISABLE_MUTI_THREAD
     if(log_thread_status == 0){
@@ -184,6 +181,9 @@ void* log_worker(void *arg){
 void log_worker_nolock(const char *str){
     assert(log_file != NULL);
     fprintf(log_file, "%s\n", (char*)str);
+    if(std_status == 1){
+        printf("%s\n", str);
+    }
     fflush(log_file);
 }
 
@@ -193,6 +193,7 @@ void log_worker_nolock(const char *str){
  */
 void close_log(){
     while(linked_list_get_head(msg_queue) != NULL){}
+    //sleep(5);
     log_thread_status = 0;
     rwlock_destroy(&log_lock);
     linked_list_free(msg_queue);
