@@ -58,6 +58,7 @@ struct record_dto *query_by_domin_name(const char *domin_name, uint16 record_typ
  * @param domin_name 域名
  * @param record_type 记录类型
  * @param record 记录数据
+ * @param record_len 记录长度
  * @param ttl Time To Live, 生存时间
  * @return int32 
  */

@@ -28,5 +28,7 @@ userfile_debug:$(PATH_COMMON)linked_list.c $(PATH_HEADERS)linked_list.h  $(PATH_
 setting_test:$(PATH_COMMON)setting.c $(PATH_HEADERS)setting.h
 	$(CC) $(CFLAGS) -D DISABLE_MUTI_THREAD -I$(PATH_HEADERS) $(PATH_COMMON)setting.c $(PATH_SRC)setting_test.c -o setting_test -lws2_32
 
+dao_test: $(PATH_COMMON)sqlite3.c $(PATH_HEADERS)sqlite3.h $(PATH_COMMON)linked_list.c $(PATH_HEADERS)linked_list.h  $(PATH_COMMON)thpool.c $(PATH_HEADERS)thpool.h $(PATH_COMMON)logger.c $(PATH_HEADERS)logger.h $(PATH_COMMON)userfile.c $(PATH_HEADERS)userfile.h $(PATH_COMMON)db.c $(PATH_HEADERS)db.h $(PATH_COMMON)trie.c $(PATH_HEADERS)trie.h $(PATH_COMMON)dao.c $(PATH_HEADERS)dao.h
+	$(CC) $(CFLAGS) -D DISABLE_MUTI_THREAD -I$(PATH_HEADERS) $(PATH_COMMON)sqlite3.c $(PATH_COMMON)linked_list.c  $(PATH_COMMON)thpool.c $(PATH_COMMON)logger.c $(PATH_COMMON)userfile.c $(PATH_COMMON)db.c $(PATH_COMMON)trie.c $(PATH_COMMON)dao.c $(PATH_SRC)dao_test.c $(ENV_FLAG) -o dao_test
 clean:
 	rm -f testlogger thpool_debug

@@ -121,13 +121,13 @@ int32 trie_insert(struct trie_node *root, int8 *key_domin_name, uint16 record_ty
     struct record_info *record_info = (struct record_info *)malloc(sizeof(struct record_info));
     record_info->record_type = record_type; // 记录类型
     record_info->record_len = record_len; // 记录长度
-    memcpy(record_info->record, record, sizeof(record)); // 记录数据
+    memcpy(record_info->record, record, record_len); //FIXME  记录数据 这里可能会有问题
     record_info->expire_time = time(NULL) + ttl; // 过期时间
     record_info->domin_name = domin_name; // 域名
     record_info->query_cnt = 0; // 查询次数
 
     // 插入主链表中, 并得到首部节点
-    linked_list_insert_head(main_ops_unit, record_info, sizeof(struct record_info));
+    linked_list_insert_head(main_ops_unit, (char*)record_info, sizeof(struct record_info));
     struct linked_list_node *tail = linked_list_get_head(main_ops_unit);
      
     // 如果cur->ops_unit为空, 则新建一个链表操作单元
@@ -135,8 +135,8 @@ int32 trie_insert(struct trie_node *root, int8 *key_domin_name, uint16 record_ty
         cur->ops_unit = malloc(sizeof(struct list_ops_unit));
         *cur->ops_unit = linked_list_create();
     } 
-
-    if (linked_list_insert_head(*cur->ops_unit, tail, sizeof(struct linked_list_node)) == FAIL) {
+    //FIXME 确定下面这个插入的数据是tail？？？
+    if (linked_list_insert_head(*cur->ops_unit, (char*)tail, sizeof(struct linked_list_node)) == FAIL) {
         return FAIL;
     }
 
@@ -171,6 +171,8 @@ int32 trie_delete(struct trie_node *root, int8 *key_domin_name, uint16 record_ty
 
     // 然后如果发现没有节点的经过次数变为0, 则说明此时cur下面的指针数组大小是一个以上, 此时需要遍历这个指针数组, 将对应类型删除, 并释放
     delete_record_list_node(*cur->ops_unit, record_type);
+    //FIXME 你返回值呢¿
+    return 1;
 }
 
 int32 delete_record_list_node(struct list_ops_unit ops_unit, uint16 record_type) {
