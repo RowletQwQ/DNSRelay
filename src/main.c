@@ -31,9 +31,9 @@ int main(int argc, char *argv[]){
     
     // 初始化用户文件
     init_read_file(get_user_file());
-    
+    tasker = thpool_create(10);
     // LOG
-    init_log(get_log_file(),get_debug_level(),0,NULL);
+    init_log(get_log_file(),get_debug_level(),0,tasker);
 
     // 初始化DAO层
     init_dao();
@@ -41,7 +41,7 @@ int main(int argc, char *argv[]){
     // 初始化socket IP可以指定
     socket_init();
     
-    tasker = thpool_create(10);
+    
     // 监听接口
     socket_req_listen();
     
