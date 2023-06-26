@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
+#include <unistd.h>
 #include <string.h>
 #if defined(_WIN32) || defined(_WIN64)
 #include <winsock2.h>
@@ -17,7 +19,24 @@
 //测试dao层工作是否正常
 //测试通过读取userfile.txt文件实现,先读取userfile.txt
 //调用dao层接口函数进行写入，随后进行查询
-
+void add_task(void* args){
+    struct domin_table_data *buffer = (struct domin_table_data *)args;
+    int ret = add_record(buffer->domin_name, buffer->record_type, buffer->record,256,30);
+    if(ret == -1){
+            LOG_ERROR("dao_insert error");
+        }else{
+            char ip[INET6_ADDRSTRLEN] = {0};
+            if(buffer->record_type == A){
+                inet_ntop(AF_INET, buffer->record, ip, INET_ADDRSTRLEN);
+            }else if(buffer->record_type == AAAA){
+                inet_ntop(AF_INET6, buffer->record, ip, INET6_ADDRSTRLEN);
+            }else{
+            //CNAME or NS
+                strcpy(ip, (char*)buffer->record);
+            }
+            LOG_INFO("dao_insert success,domain:%s,record_type:%d,record:%s",buffer->domin_name,buffer->record_type,ip);
+        }
+}
 int main(){
     init_log("log.txt", LOG_LEVEL_DEBUG, 1, NULL);
     init_read_file("userfile.txt");
@@ -26,23 +45,14 @@ int main(){
     int len = read_data(&buffer);
     printf("len:%d\n", len);
     //调用dao层接口写入
+    // 开线程池
+    thread_pool pool = thpool_create(12);
     for(int i = 0; i < len; i++){
-        int ret = add_record(buffer[i].domin_name, buffer[i].record_type, buffer[i].record,256,30);
-        if(ret == -1){
-            LOG_ERROR("dao_insert error");
-        }else{
-            char ip[INET6_ADDRSTRLEN] = {0};
-            if(buffer[i].record_type == A){
-                inet_ntop(AF_INET, buffer[i].record, ip, INET_ADDRSTRLEN);
-            }else if(buffer[i].record_type == AAAA){
-                inet_ntop(AF_INET6, buffer[i].record, ip, INET6_ADDRSTRLEN);
-            }else{
-            //CNAME or NS
-                strcpy(ip, (char*)buffer[i].record);
-            }
-            LOG_INFO("dao_insert success,domain:%s,record_type:%d,record:%s",buffer[i].domin_name,buffer[i].record_type,ip);
-        }
+        thpool_add_work(pool, add_task, (void*)&buffer[i]);
     }
+    thpool_wait(pool);
+    sleep(5);
+    thpool_destroy(pool);
     //调用dao层接口查询
     DNSRecord *record = (DNSRecord *)malloc(sizeof(DNSRecord));
     memset(record, 0, sizeof(DNSRecord));
