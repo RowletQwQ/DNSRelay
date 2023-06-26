@@ -27,7 +27,8 @@ int main(int argc, char *argv[]){
     // 解析命令行参数 读文件
     say_hello();
     parse_args(argc,argv);
-    
+    // 初始化用户文件
+    init_read_file(get_user_file());
     // LOG
     init_log(get_log_file(),get_debug_level(),0,NULL);
 
