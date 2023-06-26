@@ -2,11 +2,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <time.h>
 #include "dao.h"
 #include "trie.h"
 #include "db.h"
-
+#include "logger.h"
 
 /*================兼容性选项==================*/
 #if defined(_WIN32) || defined(_WIN64)
@@ -47,8 +47,9 @@ static inline void rwlock_wr_unlock(rwlock_t *lock){
 /// @param lock
 static inline void rwlock_destroy(rwlock_t *lock){
     // do nothing
+    (void)lock;
 }
-static inline void r
+
 #elif defined(__linux__)
 #include <pthread.h>
 #include <sys/prctl.h>
@@ -98,7 +99,7 @@ static int query_record_nolock(const char *domain, uint16 record_type, DNSRecord
 
 /*===============全局变量=========================*/
 static rwlock_t rwlock;
-static trie_node *cache_root;
+static struct trie_node *cache_root;
 
 
 /*=================正常函数====================*/
@@ -127,7 +128,7 @@ int query_record(const char *domain, uint16 record_type, DNSRecord *record){
 
 static int add_record_nolock(const char *domin_name, uint16 record_type, byte record[256], uint16 record_len, int32 ttl){
     // 先插入缓存
-    int ret = trie_insert(cache_root, domin_name, record_type, record_len, record, ttl);
+    int ret = trie_insert(cache_root, (int8*)domin_name, record_type, record_len, record, ttl);
     if(ret != 0){
         LOG_ERROR("insert cache failed");
         return ret;
@@ -144,32 +145,32 @@ static int add_record_nolock(const char *domin_name, uint16 record_type, byte re
 static int query_record_nolock(const char *domain, uint16 record_type, DNSRecord *record){
     // 约定: 过期和没有时，调用的搜索函数一定为null
     // 先查缓存
-    struct record_info *info = trie_search(cache_root, domain, record_type);
+    struct record_info *info = trie_search(cache_root, (int8*)domain, record_type);
     // 缓存没有再查数据库
     if(info == NULL){
-        struct record_dto = query_by_domin_name(domain, record_type);
-        if(record_dto == NULL){
+        struct record_dto* result= query_by_domin_name(domain, record_type);
+        if(result == NULL){
             return -1;
         }
         // 查到之后，计算ttl
-        int32 ttl = record_dto->expire_time - time(NULL);
+        int32 ttl = result->expire_time - time(NULL);
         // 插入缓存
-        int ret = trie_insert(cache_root, domain ,record_type, record_dto->record_len, record_dto->record, ttl);
+        int ret = trie_insert(cache_root, (char*)domain ,record_type, result->record_len, result->record, ttl);
         if(ret != 0){
             LOG_ERROR("insert cache failed");
             return -1;
         }
         // 赋值
-        memcpy(record->record, record_dto->record, record_dto->record_len);
-        memcpy(record->domain, record_dto->domain, strlen(record_dto->domain));
-        record->record_type = record_dto->record_type;
-        record->record_len = record_dto->record_len;
-        record->expire_time = record_dto->expire_time;
+        memcpy(record->record, result->record, result->record_len);
+        memcpy(record->domin_name, domain, strlen(domain));
+        record->record_type = record_type;
+        record->record_len = result->record_len;
+        record->expire_time = result->expire_time;
         return 0;
     }
     // 缓存有，直接赋值
     memcpy(record->record, info->record, info->record_len);
-    memcpy(record->domain, info->domain, strlen(info->domain));
+    memcpy(record->domin_name, info->domin_name, strlen(info->domin_name));
     record->record_type = info->record_type;
     record->record_len = info->record_len;
     record->expire_time = info->expire_time;
@@ -179,6 +180,6 @@ static int query_record_nolock(const char *domain, uint16 record_type, DNSRecord
 
 void destroy_dao(){
     rwlock_destroy(&rwlock);
-    free_tire_node(cache_root);
+    free_trie_node(cache_root);
     LOG_INFO("DAO destroy success");
 }

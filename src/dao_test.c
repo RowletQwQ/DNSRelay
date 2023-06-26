@@ -1,7 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#if defined(_WIN32) || defined(_WIN64)
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#else
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#endif
 #include "dao.h"
 #include "trie.h"
 #include "db.h"
@@ -21,7 +27,7 @@ int main(){
     printf("len:%d\n", len);
     //调用dao层接口写入
     for(int i = 0; i < len; i++){
-        int ret = add_record(buffer[i].domain, buffer[i].record_type, buffer[i].record,256,30);
+        int ret = add_record(buffer[i].domin_name, buffer[i].record_type, buffer[i].record,256,30);
         if(ret == -1){
             LOG_ERROR("dao_insert error");
         }
@@ -30,7 +36,7 @@ int main(){
     DNSRecord *record = (DNSRecord *)malloc(sizeof(DNSRecord));
     memset(record, 0, sizeof(DNSRecord));
     for(int i = 0;i < len; i++){
-        int ret = query_record(buffer[i].domain, buffer[i].record_type, record);
+        int ret = query_record(buffer[i].domin_name, buffer[i].record_type, record);
         if(ret == -1){
             LOG_ERROR("dao_query error");
         }
@@ -43,9 +49,9 @@ int main(){
             inet_ntop(AF_INET6, record->record, ip, INET6_ADDRSTRLEN);
         }else{
             //CNAME or NS
-            strcpy(ip, record->record);
+            strcpy(ip, (char*)record->record);
         }
-        LOG_INFO("domain:%s,record_type:%d,record:%s",record->domain,record->record_type,ip);
+        LOG_INFO("domain:%s,record_type:%d,record:%s",record->domin_name,record->record_type,ip);
     }
     //释放内存
     free(buffer);

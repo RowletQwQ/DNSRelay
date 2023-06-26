@@ -1,7 +1,12 @@
 #include "db.h"
 #include "sqlite3.h"
+#include "userfile.h"
+
 #include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
 
 // 把用户自定义的域名信息插入到数据库中
 static int32 insert_user_setting_domin_info();
@@ -141,7 +146,8 @@ int32 init_db() {
 struct record_dto *query_by_domin_name(const char *domin_name, uint16 record_type) {
     // 打开数据库
     sqlite3 *db = NULL;
-    char *err_msg = NULL;
+    char *err_msg = NULL;//FIXME 咋不用呢
+    (void)err_msg;
     int32 ret = sqlite3_open(DB_NAME, &db);
     if (ret != SQLITE_OK) {
         fprintf(stdout, "open db failed\n");
@@ -228,6 +234,8 @@ int32 insert_domin_info(const char *domin_name, uint16 record_type, byte record[
     // 打开数据库
     sqlite3 *db = NULL;
     char *err_msg = NULL;
+    //TODO err_msg没用到
+    (void)err_msg;
     int32 ret = sqlite3_open(DB_NAME, &db);
     if (ret != SQLITE_OK) {
         fprintf(stdout, "open db failed\n");

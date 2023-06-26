@@ -73,6 +73,6 @@ void init_dao();
  * @brief 释放dao层，包括释放缓存，数据库，以及读写锁等
  * 
  */
-void destory_dao();
+void destroy_dao();
 
 #endif
