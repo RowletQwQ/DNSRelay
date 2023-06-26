@@ -67,9 +67,11 @@ static inline int cond_init(cond_t *cond, void *attr) {
 
 #define mutex_lock EnterCriticalSection
 #define mutex_unlock LeaveCriticalSection
-
-#define thread_create(th, attr, fn, arg) \
-    CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)(fn), (LPVOID)(arg), 0, NULL)
+static int thread_create(thread_t *thread, void *attr, void *(*start_routine)(void *), void *arg) {
+    (void)(attr);
+    *thread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)start_routine, arg, 0, NULL);
+    return 0;
+}
 static inline int thread_join(thread_t *thread, void **value) {
     (void)(value);
     WaitForSingleObject(*thread, INFINITE);
@@ -246,10 +248,13 @@ void thpool_destroy(thread_pool_t *thread_pool_ptr){
     // 通知所有线程退出
     threads_keepalive = 0;
     // 唤醒所有线程
+
     semaphore_post_all(thread_pool_ptr->work_queue.has_jobs);
+#if defined(__linux__)
     for (int i = 0; i < threads_total; i++) {
         thread_join(thread_pool_ptr->threads[i]->thread, NULL);
     }
+#endif 
 
     // 清除工作队列
     work_queue_destroy(&thread_pool_ptr->work_queue);
@@ -315,10 +320,11 @@ static int thread_init(work_thread_t **thread_ptr, thread_pool_t *thread_pool_pt
     (*thread_ptr)->id = id;
 #if defined(__linux__)
     thread_create(&(*thread_ptr)->thread, NULL, (void * (*)(void *))thread_do, (*thread_ptr));
-#elif defined(_WIN32) || defined(_WIN64)
-    thread_create(&(*thread_ptr)->thread, NULL, (DWORD (*)(void *))thread_do, (*thread_ptr));
-#endif
     thread_detach((*thread_ptr)->thread);
+#elif defined(_WIN32) || defined(_WIN64)
+    thread_create(&(*thread_ptr)->thread, NULL, (void * (*)(void *))thread_do, (*thread_ptr));
+#endif
+    
     LOG_DEBUG("thread_init(): Created thread %d in pool ", id);
     return THPOOL_SUCCESS;
 }

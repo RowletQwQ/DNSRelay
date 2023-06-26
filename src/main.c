@@ -19,7 +19,7 @@ int main(char argc, char *argv[]){
 
     trie_cache = trie_create();
     printf("trie_cache create success\n");
-
+    
     // 初始化socket IP可以指定
     socket_init();
 
@@ -30,7 +30,6 @@ int main(char argc, char *argv[]){
     // pthread_t thread_manager;
 
     // 创建线程池
-    tasker = thpool_create(10);
     printf("tasker create success\n");
 
     int ret;
