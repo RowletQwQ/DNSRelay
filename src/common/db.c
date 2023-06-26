@@ -228,6 +228,19 @@ struct record_dto *query_by_domin_name(const char *domin_name, uint16 record_typ
 
 // 3.插入一条域名信息
 int32 insert_domin_info(const char *domin_name, uint16 record_type, byte record[256], uint16 record_len, int32 ttl) {
+    // 插入的时候先执行查询
+    struct record_dto *record_dto = query_by_domin_name(domin_name, record_type);
+    if (record_dto != NULL) {
+        if (record_dto->expire_time == -1) {
+            return SUCCESS;
+        }
+        if (record_dto->expire_time >= ttl + time(NULL)) {
+            return SUCCESS;
+        } else {
+            delete_domin_info(domin_name, record_type);
+        }
+    }
+
     // 打开数据库
     sqlite3 *db = NULL;
     //char *err_msg = NULL;
@@ -292,7 +305,46 @@ int32 insert_domin_info(const char *domin_name, uint16 record_type, byte record[
     sqlite3_close(db);
 
     return SUCCESS;
+}
 
+// 根据域名和记录类型删除
+int32 delete_domin_info(const char *domin_name, uint16 record_type) {
+    // 打开数据库
+    sqlite3 *db = NULL;
+    //char *err_msg = NULL;
+    int32 ret = sqlite3_open(DB_NAME, &db);
+
+    // 删除
+    char *delete_sql = "DELETE FROM domin_table WHERE domin_name = ? AND record_type = ?;";
+    sqlite3_stmt *stmt = NULL;
+    ret = sqlite3_prepare_v2(db, delete_sql, -1, &stmt, NULL);
+    if (ret != SQLITE_OK) {
+        LOG_ERROR("prepare sql failed");
+        sqlite3_close(db);
+        return FAIL;
+    }
+
+    // 绑定参数
+    ret = sqlite3_bind_text(stmt, 1, domin_name, -1, NULL);
+    if (ret != SQLITE_OK) {
+        LOG_ERROR("bind param failed");
+        sqlite3_close(db);
+        return FAIL;
+    }
+    ret = sqlite3_bind_int(stmt, 2, record_type);
+
+    // 执行删除
+    ret = sqlite3_step(stmt);
+    if (ret != SQLITE_DONE) {
+        LOG_ERROR("step failed");
+        sqlite3_close(db);
+        return FAIL;
+    }
+
+    // 关闭数据库
+    sqlite3_close(db);
+
+    return SUCCESS;
 }
 
 // 查询数据库中的所有域名信息, 传入的参数为一个二级指针, 用于存储查询结果, 返回值为查询数据的条数

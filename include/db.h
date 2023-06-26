@@ -73,4 +73,7 @@ int32 insert_domin_info(const char *domin_name, uint16 record_type, byte record[
  */ 
 int32 query_all_dns_record(struct domin_table_data **domin_table_data_array);
 
+
+
+int32 delete_domin_info(const char *domin_name, uint16 record_type);
 #endif

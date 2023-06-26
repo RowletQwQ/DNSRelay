@@ -42,7 +42,7 @@ void taskworker(struct task * task_){
     printf("taskworker: parse_to_reqs success\n");
     
 
-    if(query_state == QUERY_FAIL){
+    if (query_state == QUERY_FAIL) {
         // 快速响应
         printf("query fail\n");
 
@@ -73,7 +73,7 @@ void taskworker(struct task * task_){
 }
 
 // 创建完整链式请求,创建req的地方
-int link_query_reqs(struct task * task_){
+int link_query_reqs(struct task * task_) {
     // 解析报文头
     struct dns_header *dnshdr = (struct dns_header *)task_->message;
     // 解析请求数目
