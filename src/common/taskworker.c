@@ -1,33 +1,27 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <windows.h>
 #include <time.h>
 #include "taskworker.h"
 #include "socket.h"
 #include "parsedata.h"
+#include "trie.h"
 
 extern struct list_ops_unit task_pool;
-extern int task_free_flag;
+
+extern struct trie_node * trie_cache;
 // 任务池
-void taskmanager(void * arg){
-    (void)arg;
+void taskmanager(){
     struct linked_list_node * task_node = NULL;
     Sleep(100);
     while(1){
-        if((task_node = linked_list_delete_head(task_pool)) != NULL){
+
+        if((task_node = linked_list_get_head(task_pool)) != NULL){
             
             struct task* task_ = (struct task *)task_node->data;
-            
-            // 打印task_的内容
-            printf("\n message_len %d\n",task_->m_len);
 
-            for(int i = 0;i < task_->m_len;i++){
-                printf("%02x ",task_->message[i]);
-            }
-            
-            // 交给线程池处理
             taskworker((struct task *)task_node->data);
             
+            linked_list_delete_head(task_pool);
         }else{
             Sleep(100);
         }
@@ -39,19 +33,26 @@ void taskworker(struct task * task_){
     
     printf("taskworker!!!\n");
     
-    // 1.解析报文和查询报文
+    // 直接中继服务
+    printf("%d\n",talk_to_dns(task_->message,task_->m_len,task_->addr,task_->sock_len));
+    return;
+    
+    // 1.链式解析报文和查询报文
     int query_state = link_query_reqs(task_);
 
     // 依次打印message
     printf("taskworker: parse_to_reqs success\n");
     
+
     if(query_state == QUERY_FAIL){
         // 快速响应
         printf("query fail\n");
         
         // 只更新message
         int offset = task_->m_len;
-        int res = throw_to_dns(task_);
+        int res = talk_to_dns(task_->message,task_->m_len,task_->addr,task_->sock_len);
+        
+        // int res = throw_to_dns(task_,task_->message,task_->m_len);
         if(res == -1){
             printf("throw_to_dns failed!\n");
         }else{
@@ -59,13 +60,14 @@ void taskworker(struct task * task_){
             update_db(task_,offset); // 更新数据库
         }
     }else{
+        printf("==============local query success=========\n");
         // 查询成功
         parse_to_dnsres(task_);
         
         // 更新响应包
         printf("\nsento_client\n");
         // 发送响应包
-        printf("%d\n",send_to_client(task_->message,task_->m_len,(struct sockaddr *)task_->addr,task_->sock_len));
+        printf("%d\n",send_to_client(task_->message,task_->m_len,&task_->addr,task_->sock_len));
     };
     
     
@@ -74,40 +76,61 @@ void taskworker(struct task * task_){
     return;
 }
 
-// 创建完整链式请求 查询
+// 创建完整链式请求,创建req的地方
 int link_query_reqs(struct task * task_){
     // 解析报文头
     struct dns_header *dnshdr = (struct dns_header *)task_->message;
     // 解析请求数目
     task_->req_num = ntohs(dnshdr->qdcount);
 
-
     printf("req_num %d\n",task_->req_num);
-    
-    // 创建链表
-    task_->reqs = linked_list_create();
     
     // 解析请求
     char * buf = task_->message;
 
     for(int i = 0,offset = 12;i < ntohs(dnshdr->qdcount);i++){    
-        struct req temp_req;
-        // 提供空间
+        struct req temp_req;//局部
+        
+        // 后面释放
         temp_req.req_domain = (char *)malloc(256);
-        struct req req_;
+        
+        // 初始化
+        struct req req_ ;
+        req_.req_domain = (char *)malloc(sizeof(char) * 256);
+        req_.rdata = (char *)malloc(sizeof(char) * 256);
+        req_.domain_len = 0;
+        req_.rdata_len = 0;
         req_.domain_pointer = (int16) offset; //正常请求 初始化偏移值
         
-        // 偏移增加 指向message中的消息
-        offset += parse_to_req(buf + offset,&req_,(const char *)task_->message);
+        // 偏移增加 指向message中的消息 填充req_
+        int res_toreq = parse_to_req(buf + offset,&req_,(const char *)task_->message);
+        if(res_toreq == -1){
+            printf("parse_to_req failed!\n");
+            return -1;
+        }
+        // 更新偏移量
+        offset += res_toreq;
+        
         // 查询该记录 , 填充 , 记录resp的原本名字作为CNAME域名
-
         int resp_type = query_req(&req_); 
+
+        if(resp_type == -1){
+            // 查询失败 直接返回
+            return -1;
+        }
         
         // 记录域名 可能作为下一个CNAME查询
         memcpy(temp_req.req_domain,req_.rdata,req_.rdata_len);
         temp_req.domain_len = req_.rdata_len;
+        
         // 格式化该请求
-        parse_to_rdata(&req_);
+        int res_tordata = parse_to_rdata(&req_);
+
+        if(res_tordata == -1){
+            printf("parse_to_rdata failed!\n");
+            return -1;
+        }
+        
         // 添加到链表中
         if(linked_list_insert_tail(task_->reqs, (int8 *)&req_,sizeof(struct req)) == -1){
             printf("Insert req failed!\n");
@@ -134,29 +157,41 @@ int link_query_reqs(struct task * task_){
                 // 域名设置
                 
                 // 重新申请内存 在删除req时释放
-                req_.req_domain = (char *)malloc(256);
+                req_.req_domain = (char *)malloc(sizeof(char)*256);
+                req_.rdata = (char *)malloc(sizeof(char)*256);
+
                 memcpy(req_.req_domain,temp_req.req_domain,temp_req.domain_len);
                 req_.domain_len = temp_req.domain_len;
+                
                 // 指向前一个 的负数
                 req_.domain_pointer = -req_.rdata_len;
+
+                // qtype 和 qclass不变
 
                 // 查询这个新的请求
                 resp_type = query_req(&req_);
                 
+                if(resp_type == -1){
+                    // 查询失败
+                    return -1;
+                }
                 
-                printf(" ==%d==\n",resp_type);
                 // 再次记录下
                 memcpy(temp_req.req_domain,req_.rdata,req_.rdata_len);
                 temp_req.domain_len = req_.rdata_len;
                 
                 //格式化
-                parse_to_rdata(&req_);
-
+                int to_rdata_state = parse_to_rdata(&req_);
+                if(to_rdata_state == -1){
+                    printf("parse_to_rdata failed!\n");
+                    return -1;
+                }
                 // 添加到链表中
                 if(linked_list_insert_tail(task_->reqs, (int8 *)&req_,sizeof(struct req)) == -1){
                     printf("Insert req failed!\n");
-                    exit(1);
+                    return -1;
                 }
+
                 task_->req_num++;
             }else{
                 // 查询出错
@@ -169,21 +204,20 @@ int link_query_reqs(struct task * task_){
     return 0;
 }
 
-
 void task_free(struct task * task_){
-    // 释放资源
-
-    // 1.释放message
+    
+    // 1.释放message报文
     if(task_->message != NULL){
         free(task_->message);
     }
     // 2.释放地址
-    struct sockaddr* addr = (struct sockaddr *)task_->addr;
+    // struct sockaddr* addr = &task_->addr;
     
-    if(addr != NULL){
-        free(addr);
-    }
-
+    // if(addr != NULL){
+    //     free(addr);
+    // }
+    // 可能还有请求没有释放
+    
     // 3.释放task
     free(task_);
     return;
@@ -191,40 +225,33 @@ void task_free(struct task * task_){
 
 // 返回响应类型
 int query_req(struct req * req_){
+
+    struct record_info * res = trie_search(trie_cache,req_->req_domain,req_->qtype);
     
-    // 创建socket
-    
-    // 设置超时
-     
-    // 随机数 假装查询
-    
-    if(rand() % 2 == 0){
-        
-        req_->rtype = 5;
-        req_->rclass = 1;
-        req_->ttl = 234;
-        req_->rdata_len = 21;
-        req_->rdata = (char *)malloc(sizeof(char) * 256);
-        strcpy(req_->rdata,"www.baidu.baifen.com");
-        return 5;
-    }else{
-        // 查询成功
-        req_->rtype = req_->qtype;
-        req_->rclass = 1;
-        req_->ttl = 234;
-        req_->rdata_len = 14;
-        req_->rdata = (char *)malloc(sizeof(char) * 256);
-        strcpy(req_->rdata,"110.114.117.6");
-        return req_->qtype;
+    if(res != NULL){
+        printf("find in cache\n");
+        // 打印消息
+        printf("rdata:%s\n",res->record);
+        printf("type:%d\n",res->record_type);
     }
 
-    // 格式化r_data
-    parse_to_rdata(req_);
-    
+    if(res == NULL){
+        return QUERY_FAIL;
+    }else if(res->record_type == req_->qtype || res->record_type == 5){
+        req_->rtype = res->record_type;
+        req_->rclass = 1;
+        req_->ttl = res->expire_time - time(NULL);
+        req_->rdata_len = res->record_len;
+        memcpy(req_->rdata,res->record,res->record_len);
+        return req_->rtype;
+    }else{
+        return QUERY_FAIL;
+    }
     return QUERY_FAIL;
 }
 
 int update_db(struct task * task_,int offset){
+    
     struct dns_header *dnshdr = (struct dns_header *)task_->message;
     int ancount = ntohs(dnshdr->ancount);
     
@@ -235,9 +262,13 @@ int update_db(struct task * task_,int offset){
     for(int i = 0;i < ancount;i++){
         
         // 自己申请,一段空间存放，其他的直接引用    
-        // 解析answer
+
         offset += parse_to_data(task_->message + offset,&req_,task_->message);
-        
+        if(offset == -1){
+            printf("parse_to_data failed!\n");
+            return -1;
+        }
+
         // 添加到缓存
         printf("======debug======\n");
         // 打印req_
@@ -251,43 +282,51 @@ int update_db(struct task * task_,int offset){
         
         printf("req_ type %d\n",req_.rtype);
 
-        // 将这些数据写入文件
-        // 写入文件
-        
-        // FILE *fp = fopen("db.txt","a+");
-        // if(fp == NULL){
-        //     printf("open file failed!\n");
-        //     exit(1);
-        // }
 
-        // // 写入文件
-        // fprintf(fp,"domain:%s rtype:%d ttl:%d rdata:%s\n",req_.req_domain,req_.rtype,req_.ttl,req_.rdata);
-        
+        if(trie_insert(trie_cache,req_.req_domain,req_.rtype,req_.rdata,req_.rdata_len,req_.ttl) == -1){
+            printf("trie_insert failed!\n");
+        }else{
+            printf("trie_insert success! %s\n",req_.req_domain);
+        }
     }
 
-    return 0;
+
 }
 
-
-int throw_to_dns (struct task* task_){
+int throw_to_dns (struct task* task_,char *message,int m_len){
     
-    // 可以审查下资质
+    // 打印message
+    printf("\n+++++++debug %d +++++++\n",task_->m_len);
+    
+    for(int i = 0;i < task_->m_len;i++){
+        printf("%02x ",task_->message[i]);
+    }
 
-    // 发送数据到dns服务器
-    int state = talk_to_dns(task_->message,task_->m_len);
+    int state = talk_to_dns(message,m_len,task_->addr,task_->sock_len);
+    
     // 依次打印message
-    
-    if(state == -1 || state == 0){
+    if(state == -1 ){
         // 超时或者查询失败
         printf("throw_to_dns: talk_to_dns fail\n");
-        return -1;
     }else{
-        // 查询成功
-        // 检查资质
         task_->m_len = state;
         printf("throw_to_dns: talk_to_dns success\n");
+        // 给客户端发送过去
+        send_to_client(task_->message,task_->m_len,&task_->addr,task_->sock_len);
     }
-    // 给客户端发送过去
-    send_to_client(task_->message,task_->m_len,(struct sockaddr *)task_->addr,task_->sock_len);
-    return 0;
+
+    
+    
+    // 销毁task中的req_ 请求
+    if(task_->reqs.head != NULL){
+        printf("delete reqs\n");
+        struct linked_list_node * node = NULL;
+        while((node = linked_list_delete_head(task_->reqs)) != NULL){
+            struct req * req_ = (struct req *)node->data;
+            free(req_->req_domain);
+            free(req_->rdata);
+        }    
+    }
+    
+    return state;
 }

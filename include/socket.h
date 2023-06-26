@@ -74,7 +74,7 @@ void socket_close(int sock);
  * @brief 监听请求端口 将dns请求加入到任务池中
  * @param arg 占位符
  */
-void socket_req_listen(void * arg);
+void socket_req_listen();
 
 //UDP
 /**
@@ -158,8 +158,7 @@ int tcp_server_accept(int sockfd, struct sockaddr *addr, int *addrlen);
  * 
  * @return int 返回新的报文长度，并且报文已经被修改 超时返回-1
  */
-int talk_to_dns(char *message,int len);
-
+int talk_to_dns(char *message,int len,struct sockaddr src_addr, int addrlen);
 
 
 #endif

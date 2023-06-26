@@ -15,18 +15,23 @@
 #endif
 
 int parse_to_req(const char *buffer,struct req * req_,const char* message) {
-    
-    // 申请内存
-    req_->req_domain = (char*)malloc(sizeof(char) * 256);
-    // 有改动
+
     int16 str_len = 0;
     int i = parse_to_string(buffer,req_->req_domain,&str_len,message);
     
-    req_->domain_len = (int8)str_len;
+    if(str_len > 255){
+        printf("domain too long\n");
+        return -1;
+    }
+
+    req_->domain_len = (unsigned char) str_len;
+    
     // 读取qtype 2字节
     req_->qtype = ntohs(*(uint16 *)(buffer + i ));
+    
     // 读取qclass 2字节
     req_->qclass = ntohs(*(uint16 *)(buffer + i + 2));
+
     return i + 3;
 }
 
@@ -132,7 +137,7 @@ void parse_to_dnsres(struct task * task_) {
             req_->domain_pointer = task_->m_len + req_->domain_pointer;
         }
 
-        int answer_size =  parse_to_answer(req_,answer,task_->message);
+        int answer_size =  parse_to_answer(req_,answer);
         
         // 判断是否越界
         if(task_->m_len + answer_size > 512){
@@ -154,10 +159,6 @@ void parse_to_dnsres(struct task * task_) {
     }
 
     free(answer);
-    
-    // FILE *fp = fopen("dns.txt","wb");
-    // fwrite(task_->message,1,task_->m_len,fp);
-    // fclose(fp);
 }
 
 int parse_to_reqs(struct task * task_){
@@ -195,7 +196,8 @@ int parse_to_reqs(struct task * task_){
 int parse_to_string(const char * buf,char * str,int16* str_len, const char * message){
 
     // 根据buf填充str 但是存在各种指针，需要特征判断，当下是按照指针解析还是数字解析
-    int i = 0, j = 0;
+    int i = 0;
+    int16 j = 0;
     while (buf[i] != 0) {
         
         if(i > 256){
@@ -371,6 +373,8 @@ int parse_to_data(const char *answer,struct req * req_,const char * message){
 
 int parse_to_netstr(char * astr,char * nstr){
     char * old_nstr = nstr;
+    int len = 0;
+    // 不等于零，并且大小不超过a_len
     while (*astr != '\0') {
         // 获取域名中的下一个标签（以“.”分隔）
         char *next_label = strchr(astr, '.');
@@ -382,15 +386,20 @@ int parse_to_netstr(char * astr,char * nstr){
         // 计算标签的长度，并将其添加到DNS报文中
         int label_len = next_label - astr;
         *nstr++ = label_len;
-
+        len++;
         // 将标签的字符添加到DNS报文中
         for (int i = 0; i < label_len; i++) {
             *nstr++ = *astr++;
+            len++;
         }
 
         // 如果还有更多的标签，则在标签之间添加一个“.”（长度为0）
         if (*next_label == '.') {
             astr++;
+        }
+        if(len > 255){
+            printf("parse_to_netstr: len > 255!\n");
+            return -1;
         }
     }
     // 封最后的0
@@ -399,7 +408,7 @@ int parse_to_netstr(char * astr,char * nstr){
 }
 
 int parse_to_rdata(struct req* req_){
-    // 假定请求添加域名和添加查询内容时已经分配了rdata最大内存
+    
     switch(req_->rtype){
             case 1:
                 inet_pton(AF_INET, req_->rdata, req_->rdata);
@@ -411,16 +420,16 @@ int parse_to_rdata(struct req* req_){
                 break;
             case 5:
                 char *netstr = (char *)malloc(sizeof(char) * 256);
-                int netstr_len = parse_to_netstr(req_->rdata,req_->rdata_len,netstr);
+                int netstr_len = parse_to_netstr(req_->rdata,netstr);
+                if(netstr_len == -1){
+                    printf("parse_to_rdata: parse_to_netstr failed!\n");
+                    free(netstr);
+                    return -1;
+                }
                 memcpy(req_->rdata,netstr,netstr_len);
                 // 释放内存
                 free(netstr);
                 req_->rdata_len = netstr_len;
-                // printf("rdata format: \n");
-                // // 逐字节打印
-                // for(int i = 0;i < req_->rdata_len;i++){
-                //     printf("%02x ",req_->rdata[i]);
-                // }
                 break;
             case 2:
                 break;

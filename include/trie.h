@@ -41,8 +41,6 @@ struct trie_node {
     struct list_ops_unit *ops_unit; // 将上述指针数组用链表代替
 };
 
-
-
 /*
     字典树相关操作
 */

@@ -13,9 +13,7 @@
 static thread_pool log_thread_pool = NULL;
 #endif
 
-#ifndef _WIN32
 
-#endif
 
 static int std_status = 0;   
 static FILE *log_file = NULL;
