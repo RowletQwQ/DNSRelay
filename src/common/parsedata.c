@@ -96,16 +96,15 @@ int parse_to_answer(const struct req* req_,char* answer){
 void parse_to_dnsres(struct task * task_) {
     char * new_message = task_->message;
     
-    // 修改相应头文件
-    new_message[2] |= 0x80;  
-    new_message[3] |= task_->req_num;
+    // 修改相应头
+    new_message[2] |= 0x80;  // 响应标志
+    // new_message[3] |= task_->req_num; // 设置回答数量
     
     // 设置rcode为0 -- 假定都查询成功
     new_message[3] &= 0xf0;
     
     // 修改回答数量
     *((unsigned short *)(new_message + 6)) = htons(task_->req_num);
-    printf("req_num: %d\n",task_->req_num);
 
     // 追加指针
     char *answer_ptr = new_message + task_->m_len;
@@ -113,14 +112,11 @@ void parse_to_dnsres(struct task * task_) {
     // 定义缓存区域 下面释放
     char* answer = (char*)malloc(sizeof(struct dns_answer));
 
-    printf("Q_num: %d\n",task_->req_num);
-
     int num = task_->req_num;
     for (int i = 0; i < num; i++) {
         printf("==================>i: %d\n",i);
         // 初始化answer
         memset(answer,0,sizeof(struct dns_answer));
-        
         
         // 解析req 从链表中取出，链表中已经删除，内存需要手动释放
         struct linked_list_node * req = linked_list_delete_head(task_->reqs);
@@ -129,7 +125,7 @@ void parse_to_dnsres(struct task * task_) {
             printf("req is null!\n");
             return;
         }
-
+        assert(req->data_len == sizeof(struct req));
         struct req * req_ = (struct req *)req->data;
 
         // 指向指针
@@ -157,7 +153,6 @@ void parse_to_dnsres(struct task * task_) {
         free(req_->req_domain);
         free(req_->rdata);
     }
-
     free(answer);
 }
 
@@ -220,7 +215,8 @@ int parse_to_string(const char * buf,char * str,int16* str_len, const char * mes
                 pointer = (int16 *)(message + (offset & 0x00003fff));
                 offset = ntohs(*pointer);
             }
-            
+            // 跳过计数
+            offset++;
             // 不是指针了 直接把剩下的拷贝过来
             while(message[offset] != 0){
                 str[j++] = message[offset++];
@@ -251,8 +247,7 @@ int parse_to_string(const char * buf,char * str,int16* str_len, const char * mes
 }
 
 int parse_to_data(const char *answer,struct req * req_,const char * message){
-    // 报文中的数据到最后才销毁，所以指针引用不用再次申请内存
-    
+
     // 解析name
     int16 * name = (int16 *)answer;
     
@@ -261,19 +256,18 @@ int parse_to_data(const char *answer,struct req * req_,const char * message){
     
     int len = 0;
     if(pointer & 0xc000){
-        req_->domain_pointer = pointer & 0x3fff;
-        
-        printf("%d\n",req_->domain_pointer);
+        req_->domain_pointer = pointer & 0x00003fff;
 
+        printf("%d\n",req_->domain_pointer);
         len = 2;
-        
         req_->req_domain = (char*)malloc(sizeof(char) * 256);
         int16 str_len = 0;
         if(parse_to_string(message + req_->domain_pointer,req_->req_domain,&str_len,message) == -1){
+            printf("parse_to_data: parse_to_string failed! \n");
             return -1;
         }
-        req_->domain_len = (int8)str_len;
 
+        req_->domain_len = (int8)str_len;
     }else{
         // 不是指针
         req_->domain_pointer = 0;
@@ -297,7 +291,6 @@ int parse_to_data(const char *answer,struct req * req_,const char * message){
     int32 * ttl = (int32 *)(answer + len + 4);
     req_->ttl = ntohl(*ttl);
     
-
     // 解析rdlength
     int16 * rdlength = (int16 *)(answer + len + 8);
     int16 rdl = ntohs(*rdlength);
