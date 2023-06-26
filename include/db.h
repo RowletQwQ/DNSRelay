@@ -10,12 +10,6 @@
 #define SUCCESS 1
 #define FAIL 0
 
-// 返回的dto数据
-struct record_dto {
-    uint16 record_dto;// 记录类型
-    byte record[256]; // 记录数据
-};
-
 // 定义记录类型
 #define A 1
 #define AAAA 28
@@ -24,11 +18,19 @@ struct record_dto {
 #define MX 15
 #define TXT 16
 
+
+struct record_dto {
+    byte record[256]; // 记录数据
+    uint16 record_len; // 记录长度
+    int64 expire_time; // 过期时间
+};
+
 // 存放域名信息的结构体, 对应表结构
 struct domin_table_data {
     char domin_name[256];//域名
     uint16 record_type;// 记录类型
     byte record[256]; // 记录数据
+    uint16 record_len; // 记录长度
     int64 expire_time; // 过期时间
 };
 
@@ -45,7 +47,7 @@ int32 init_db();
  * @param domin_name 域名
  * @return struct record_dto* 查询到的对应结果
  */
-struct record_dto *query_by_domin_name(const char *domin_name);
+struct record_dto *query_by_domin_name(const char *domin_name, uint16 record_type);
 
 // 3.插入一条域名信息
 /**
@@ -59,7 +61,7 @@ struct record_dto *query_by_domin_name(const char *domin_name);
  * @param ttl Time To Live, 生存时间
  * @return int32 
  */
-int32 insert_domin_info(const char *domin_name, uint16 record_type, byte record[256], int32 ttl);
+int32 insert_domin_info(const char *domin_name, uint16 record_type, byte record[256], uint16 record_len, int32 ttl);
 
 
 #endif
