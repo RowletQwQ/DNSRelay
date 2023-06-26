@@ -5,10 +5,10 @@
 #include "socket.h"
 #include "taskworker.h"
 #include "linked_list.h"
-#include "trie.h"
 #include "thpool.h"
 #include "logger.h"
 #include "setting.h"
+#include "dao.h"
 #if defined(_WIN32) || defined(_WIN64)
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -27,29 +27,29 @@ int main(char argc, char *argv[]){
     // 解析命令行参数 读文件
     say_hello();
     parse_args(argc,argv);
-    trie_cache = trie_create();
-    printf("trie_cache create success\n");
     
+    // LOG
+    init_log(get_log_file(),get_debug_level(),0,NULL);
+
+    // 初始化DAO层
+    init_dao();
+
     // 初始化socket IP可以指定
     socket_init();
-
-    printf("socket_init() success\n");
     
-    // 创建线程运行下面两个程序
-    //pthread_t thread_listen;
-    
-    // pthread_t thread_manager;
-    init_log(get_log_file(),get_debug_level(),0,NULL);
+    // 监听接口
+    socket_req_listen();
     
     // 创建线程池
     // tasker = thpool_create(4);
     // printf("tasker create success\n");
-    
-    socket_req_listen();
-    
     // thpool_wait(tasker);
     // Sleep(5000);
     // thpool_destroy(tasker);
+
+    
+    
+    
     
     return 0;
 }

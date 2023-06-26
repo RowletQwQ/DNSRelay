@@ -4,8 +4,8 @@
 #include "taskworker.h"
 #include "socket.h"
 #include "parsedata.h"
-#include "trie.h"
-
+#include "dao.h"
+#include "logger.h"
 extern struct list_ops_unit task_pool;
 
 extern struct trie_node * trie_cache;
@@ -237,37 +237,40 @@ void task_free(struct task * task_){
 
 // 返回响应类型
 int query_req(struct req * req_){
-
-    struct record_info * res = trie_search(trie_cache,req_->req_domain,req_->qtype);
+    DNSRecord record;
     
-    if(res != NULL){
+    int res = query_record(req_->req_domain,req_->qtype,&record);
+    
+    if(res != DAO_FAILURE){
         printf("==============query in local=============\n");
         // 打印消息
-        printf("rdata:%s\n",res->record);
-        printf("type:%d\n",res->record_type);
+        printf("rdata:%s\n",record.record);
+        printf("type:%d\n",record.record_type);
     }else{
         // 查CNAME
-        res = trie_search(trie_cache,req_->req_domain,5);
-        if(res != NULL){
+        res = query_record(req_->req_domain,req_->qtype,&record);
+        if(res != DAO_FAILURE){
             printf("==============query in local=============\n");
-            // 打印消息
-            printf("rdata:%s\n",res->record);
-            printf("type:%d\n",res->record_type);
+            printf("rdata:%s\n",record.record);
+            printf("type:%d\n",record.record_type);
         }
     }
     
 
-    if(res == NULL){
+    if(res == DAO_FAILURE){
         return QUERY_FAIL;
-    }else if(res->record_type == req_->qtype || res->record_type == 5){
-        req_->rtype = res->record_type;
-        req_->rclass = 1;
-        req_->ttl = res->expire_time - time(NULL);
-        req_->rdata_len = res->record_len;
-        memcpy(req_->rdata,res->record,res->record_len);
-        return req_->rtype;
-    }else{
-        return QUERY_FAIL;
+    }else {
+
+        if(record.record_type == req_->qtype || record.record_type == CNAME){
+            req_->rtype = record.record_type;
+            req_->rclass = 1;
+            req_->ttl = record.expire_time - time(NULL);
+            req_->rdata_len = record.record_len;
+            memcpy(req_->rdata,record.record,record.record_len);
+            return req_->rtype;
+        }else{
+            return QUERY_FAIL;
+        }
     }
     return QUERY_FAIL;
 }
@@ -303,13 +306,9 @@ int update_db(struct task * task_,int offset){
         req_.req_domain[req_.domain_len] = '\0';
         req_.rdata[req_.rdata_len] = '\0';
         // 先插入到缓存中
-
         
-        
-        if(trie_insert(trie_cache,req_.req_domain,req_.rtype,req_.rdata_len,req_.rdata,req_.ttl) == FAIL){
-            printf("trie_insert failed!\n");
-        }else{
-            printf("trie_insert success! %s\n",req_.req_domain);
+        if(add_record(req_.req_domain,req_.rtype,req_.rdata,req_.rdata_len,req_.ttl) == DAO_FAILURE){
+            LOG_ERROR("update_db : add_record failed!");
         }
     }
 
