@@ -24,21 +24,21 @@ int main(int argc, char* argv[]) {
     thread_pool log_pool = thpool_create(1);
     init_log(argv[1], atoi(argv[2]),0,log_pool);
     // 1.创建线程池
-    struct thread_pool_t* pool = thpool_create(2);
+    struct thread_pool_t* pool = thpool_create(8);
     
     
     // 2.创建任务
-    for(int i = 0; i < 10; i++) {
+    for(int i = 0; i < 1000; i++) {
         //printf("add work %d\n", i);
         
-        if(i == 5){
-            //线程暂停测试
-            thpool_pause(pool);
+        // if(i == 5){
+        //     //线程暂停测试
+        //     thpool_pause(pool);
+        //     thpool_add_work(pool, print_int, (void*)(uintptr_t)i);
+        //     thpool_resume(pool);
+        // }else{
             thpool_add_work(pool, print_int, (void*)(uintptr_t)i);
-            thpool_resume(pool);
-        }else{
-            thpool_add_work(pool, print_int, (void*)(uintptr_t)i);
-        }
+        //}
     }
     //printf("add work done\n");
     thpool_wait(pool);
