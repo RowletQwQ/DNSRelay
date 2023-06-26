@@ -35,7 +35,6 @@ int main(char argc, char *argv[]){
     // pthread_t thread_manager;
 
     // 创建线程池
-    tasker = thpool_create(10);
     printf("tasker create success\n");
 
     int ret;
@@ -55,8 +54,5 @@ int main(char argc, char *argv[]){
     
     pthread_join(thread_listen, NULL);
     // pthread_join(thread_manager, NULL);
-    thpool_wait(pool);
-    sleep(5);
-    thpool_destroy(pool);
     return 0;
 }
