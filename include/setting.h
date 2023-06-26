@@ -73,4 +73,13 @@ char *get_log_file();
  * @return int AF_INET 或者 AF_INET6
  */
 int get_dns_type();
+
+/**
+ * @brief 获得是否输出日志
+ * 
+ * @return
+ * 1 输出日志
+ * 0 不输出日志
+ */
+int get_is_output_log();
 #endif

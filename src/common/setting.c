@@ -19,6 +19,7 @@ typedef struct setting
     struct in6_addr dns_server_6;// DNS服务器地址
     char user_file[256];// 用户自定义文件
     char log_file[256];// 日志文件
+    int is_output_log;// 是否输出日志到标准输出
 }setting_t;
 static setting_t setting;
 
@@ -27,17 +28,19 @@ void say_hello(){
     printf("DNS Relay/Proxy Server, Version 1.0.0\n");
     printf("Author: RowletQwQ,JollyCorivuG,zjsycwmrbig\n");
     printf("Build time: %s %s\n",__DATE__,__TIME__);
+    printf("Use dnsrelay -h to get help\n");
 }
 
 // 帮助信息输出
 void say_help(){
     printf("Usage: dnsrelay [-d <debug_level>] [-s <dns-server-ip>] [-c <config-file>] [-h] [-l <log-file>]\n");
     printf("Options:\n");
-    printf("  -d <debug_level>        Set the debug level, 0-3, default 0\n");
+    printf("  -d <debug_level>        Set the debug level, 0-3, default 1\n");
     printf("  -s <dns-server-ip>      Set the dns server ip, default 114.114.114.114\n");
     printf("  -c <config-file>        Set the config file, default dnsrelay.txt\n");
+    printf("  -l <need_stdout>        Set whether print log into stdout, default 1,enable\n");
+    printf("  -o <log-file>           Set the log file, default dnsrelay.log\n");
     printf("  -h                      Show this help message\n");
-    printf("  -l <log-file>           Set the log file, default dnsrelay.log\n");
 }
 
 // 解析命令行参数
@@ -45,13 +48,14 @@ void parse_args(int argc,char *argv[]){
     int opt;
     memset(&setting,0,sizeof(setting));
     // 设置默认值
-    setting.debug_level = 0;
+    setting.debug_level = 1;
     setting.dns_type = AF_INET;
     inet_pton(AF_INET,"114.114.114.114",&setting.dns_server_4);
     strcpy(setting.user_file,"dnsrelay.txt");
     strcpy(setting.log_file,"dnsrelay.log");
+    setting.is_output_log = 1;
     // 解析命令行参数
-    while((opt = getopt(argc,argv,"d:s:c:l:h")) != -1){
+    while((opt = getopt(argc,argv,"d:s:c:o:l:h")) != -1){
         switch(opt){
             case 'd':
                 setting.debug_level = (atoi(optarg) > 3 || atoi(optarg) < 0) ? 0 : atoi(optarg);
@@ -73,8 +77,11 @@ void parse_args(int argc,char *argv[]){
             case 'h':
                 say_help();
                 exit(0);
-            case 'l':
+            case 'o':
                 strcpy(setting.log_file,optarg);
+                break;
+            case 'l':
+                setting.is_output_log = atoi(optarg);
                 break;
             default:
                 printf("Invalid option\n");
@@ -88,7 +95,9 @@ void parse_args(int argc,char *argv[]){
 int get_debug_level(){
     return setting.debug_level;
 }
-
+int get_is_output_log(){
+    return setting.is_output_log != 0;
+}
 
 struct my_dns_addr get_dns_server(){
     struct my_dns_addr addr = {0};
