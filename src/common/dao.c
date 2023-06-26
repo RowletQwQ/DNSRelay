@@ -130,3 +130,27 @@ static int add_record_nolock(DNSRecord *record){
     
 
 }
+
+static int query_record_nolock(const char *domain, uint16 record_type, DNSRecord *record){
+    // 先查缓存
+    struct record_info *info = trie_search(cache_root, domain, record_type);
+    // 缓存没有再查数据库
+    if(info == NULL){
+        struct record_dto = query_by_domin_name(domain, record_type);
+        if(record_dto == NULL){
+            return -1;
+        }
+        // 插入缓存
+        info = (struct record_info *)malloc(sizeof(struct record_info));
+        info->record_type = record_type;
+        info->expire_time = record_dto->expire_time;
+        memcpy(info->record_data, record_dto->record_data, record_dto->record_len);
+        info->domain_name = (char*)malloc(256);
+        memcpy(info->domain_name, domain, 256);
+        int ret = trie_insert(cache_root, domain, record_type, info);
+        if(ret != 0){
+            LOG_ERROR("insert cache failed");
+            return -1;
+        }
+    }
+}
