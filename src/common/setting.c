@@ -93,13 +93,13 @@ int get_debug_level(){
 struct my_dns_addr get_dns_server(){
     struct my_dns_addr addr = {0};
     if(setting.dns_type == AF_INET){
-        memset(addr,0,sizeof(struct my_dns_addr));
-        addr->family = AF_INET;
-        memcpy(&addr->u,&setting.dns_server_4,sizeof(struct in_addr));
+        memset(&addr,0,sizeof(struct my_dns_addr));
+        addr.family = AF_INET;
+        memcpy(&addr.u,&setting.dns_server_4,sizeof(struct in_addr));
     }else if(setting.dns_type == AF_INET6){ 
-        memset(addr,0,sizeof(struct my_dns_addr));
-        addr->family = AF_INET6;
-        memcpy(&addr->u,&setting.dns_server_6,sizeof(struct in6_addr));
+        memset(&addr,0,sizeof(struct my_dns_addr));
+        addr.family = AF_INET6;
+        memcpy(&addr.u,&setting.dns_server_6,sizeof(struct in6_addr));
     }
     return addr;
 }

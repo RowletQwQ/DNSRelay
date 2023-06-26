@@ -32,7 +32,7 @@ void socket_init();
  * @param sock 套接字描述符
  */
 
-void socket_close();
+void socket_close(int sock);
 
 
 /**

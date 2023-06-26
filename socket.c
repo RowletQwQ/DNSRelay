@@ -6,16 +6,9 @@
 #include <winsock2.h>
 #include "thpool.h"
 
-#ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
 SOCKET sock;
-#else
-#include <arpa/inet.h>
-int sock;
-#endif
-
-
 
 // 定义变量
 extern thread_pool tasker;
@@ -27,20 +20,21 @@ struct sockaddr_in any_in_adr, dns_addr;
 char dns_server_4[16] = "114.114.114.114";
 char dns_server_6[16];
 
-void socket_init(){
+extern struct list_ops_unit task_pool;
 
-    #ifdef _WIN32
-        // 初始化WSA
-        WSADATA wsaData;
-        int sta = WSAStartup(MAKEWORD(2, 2), &wsaData);
-        if (sta != 0) {
-            printf("fail to init");
-            exit(1);
-        }
-        sock = socket(AF_INET, SOCK_DGRAM,0);
-    #else
-        sock = socket(AF_INET, SOCK_DGRAM, 0);
-    #endif    
+void socket_init(){
+    // 初始化WSA
+    WSADATA wsaData;
+    int sta = WSAStartup(MAKEWORD(2, 2), &wsaData);
+    
+    
+    if (sta != 0) {
+        printf("fail to init");
+        
+        exit(1);
+    }
+
+    sock = socket(AF_INET, SOCK_DGRAM, 0);
     
     // 给接受端口赋值
     memset(&any_in_adr, 0, sizeof(any_in_adr));
@@ -58,20 +52,17 @@ void socket_init(){
     int ret = bind(sock, (struct sockaddr *)&any_in_adr, sizeof(any_in_adr));
     
     if (ret < 0) {
-        printf("sock bind fail");
+        printf("bind fail");
         // write_log(LOG_LEVEL_FATAL,"bind() failed\n");
         exit(1);
     }
+    printf("inited");
+
 }
 
-void socket_close(){
-    #ifdef _WIN32
-        // 初始化WSA
-        closesocket(sock);
-        WSACleanup();
-    #else
-        close(sock);
-    #endif    
+void socket_close(int sock){
+    
+    closesocket(sock);
     // 隐式释放WSA
 }
 
@@ -109,7 +100,7 @@ void socket_req_listen(){
             printf("recvfrom %d success\n", ret);
             
             taskworker(task_);
-            // thpool_add_work(tasker, (void *)taskworker, (void *)task_);
+            thpool_add_work(tasker, (void *)taskworker, (void *)task_);
         }
     }
 }
@@ -138,11 +129,8 @@ int send_to_client(char *message,int len,struct sockaddr *src_addr, int addrlen)
     //打印src_addr对应的地址
     struct sockaddr_in *src_addr_in = (struct sockaddr_in *)src_addr;
     char *src_ip = inet_ntoa(src_addr_in->sin_addr);
-    #ifdef _WIN32
-        SOCKET send_sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    #else
-        int send_sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    #endif    
+
+    SOCKET send_sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     
     struct sockaddr_in addr;
     
@@ -154,12 +142,9 @@ int send_to_client(char *message,int len,struct sockaddr *src_addr, int addrlen)
     int ret = bind(send_sock, (struct sockaddr *)&addr, sizeof(addr));
     
     if (ret == SOCKET_ERROR) {
-        #ifdef _WIN32
-            printf("bind failed: %ld\n", WSAGetLastError());
-            closesocket(send_sock);
-        #else
-            close(send_sock);
-        #endif    
+        printf("bind failed: %ld\n", WSAGetLastError());
+        closesocket(send_sock);
+        WSACleanup();
         return 1;
     }
 
@@ -167,21 +152,18 @@ int send_to_client(char *message,int len,struct sockaddr *src_addr, int addrlen)
     
 
     if (send_size == SOCKET_ERROR) {
+        // write_log(LOG_LEVEL_ERROR,"send failed\n");
+        // 发送失败
         printf("fail to send");
     }
-
     return send_size;
 }
 
 int talk_to_dns(char *message,int len,struct sockaddr src_addr, int addrlen){
     
-    #ifdef _WIN32
-        SOCKET send_sock_temp = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);        
-    #else
-        int send_sock_temp = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    #endif    
     // 绑定新端口
-
+    SOCKET send_sock_temp = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    
     // 绑定到本地地址
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
@@ -191,12 +173,8 @@ int talk_to_dns(char *message,int len,struct sockaddr src_addr, int addrlen){
 
     // 绑定到DNS服务器
     if(bind(send_sock_temp, (struct sockaddr *)&addr, sizeof(addr)) == SOCKET_ERROR){
-        #ifdef _WIN32
-            printf("bind failed: %ld\n", WSAGetLastError());
-            closesocket(send_sock_temp);
-        #else
-            close(send_sock_temp);
-        #endif    
+        printf("bind failed: %ld\n", WSAGetLastError());
+        closesocket(send_sock_temp);
         return -1;
     }
 
@@ -214,11 +192,7 @@ int talk_to_dns(char *message,int len,struct sockaddr src_addr, int addrlen){
     timeout.tv_sec = 3;
     if (setsockopt(send_sock_temp, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout)) < 0) {
         printf("setsockopt failed\n");
-        #ifdef _WIN32
-            closesocket(send_sock_temp);
-        #else
-            close(send_sock_temp);
-        #endif    
+        closesocket(send_sock_temp);
         return -1;
     }
     
@@ -232,12 +206,6 @@ int talk_to_dns(char *message,int len,struct sockaddr src_addr, int addrlen){
         printf("recv success %d\n",recv_size);
         send_to_client(message,recv_size,&src_addr,addrlen);
     }
-
-    #ifdef _WIN32
-            closesocket(send_sock_temp);
-    #else
-            close(send_sock_temp);
-    #endif    
-    
+    closesocket(send_sock_temp);
     return recv_size;
 }

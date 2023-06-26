@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <assert.h>
 
 // 根据系统引入不同的头文件
 #ifdef _WIN32

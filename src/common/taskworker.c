@@ -31,6 +31,8 @@ void taskmanager(){
 
 void taskworker(struct task * task_){
     
+    task_ = (struct task *)task_;
+
     printf("taskworker!!!\n");
     
     // 1.链式解析报文和查询报文
@@ -47,13 +49,14 @@ void taskworker(struct task * task_){
         // 只更新message
         int offset = task_->m_len;
         int res = talk_to_dns(task_->message,task_->m_len,task_->addr,task_->sock_len);
-
+        
         if(res == -1){
             printf("throw_to_dns failed!\n");
             // 销毁内存
         }else{
             update_db(task_,offset); // 更新数据库
         }
+
     }else{
         printf("==============local query success=========\n");
         // 查询成功
@@ -273,12 +276,14 @@ int update_db(struct task * task_,int offset){
     
     struct dns_header *dnshdr = (struct dns_header *)task_->message;
     int ancount = ntohs(dnshdr->ancount);
-
+    
     // 创建缓存区
     struct req req_ ;
-    
+    printf("UPDATE_DB\n");
+    printf("ancount:%d\n",ancount);
     // 依次解析answer
     for(int i = 0;i < ancount;i++){
+        
         // 自己申请,一段空间存放，其他的直接引用    
         offset += parse_to_data(task_->message + offset,&req_,task_->message);
         if(offset == -1){
@@ -299,6 +304,8 @@ int update_db(struct task * task_,int offset){
         req_.rdata[req_.rdata_len] = '\0';
         // 先插入到缓存中
 
+        
+        
         if(trie_insert(trie_cache,req_.req_domain,req_.rtype,req_.rdata_len,req_.rdata,req_.ttl) == FAIL){
             printf("trie_insert failed!\n");
         }else{
