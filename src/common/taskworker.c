@@ -238,7 +238,7 @@ void task_free(struct task * task_){
 // 返回响应类型
 int query_req(struct req * req_){
     DNSRecord record;
-    
+    printf("=====QUERY: req_domain:%s=======\n",req_->req_domain);
     int res = query_record(req_->req_domain,req_->qtype,&record);
     
     if(res != DAO_FAILURE){
@@ -258,6 +258,7 @@ int query_req(struct req * req_){
     
 
     if(res == DAO_FAILURE){
+        // 查询失败
         return QUERY_FAIL;
     }else {
 
@@ -282,11 +283,10 @@ int update_db(struct task * task_,int offset){
     
     // 创建缓存区
     struct req req_ ;
-    printf("UPDATE_DB\n");
-    printf("ancount:%d\n",ancount);
+
     // 依次解析answer
     for(int i = 0;i < ancount;i++){
-        
+
         // 自己申请,一段空间存放，其他的直接引用    
         offset += parse_to_data(task_->message + offset,&req_,task_->message);
         if(offset == -1){
@@ -294,21 +294,32 @@ int update_db(struct task * task_,int offset){
             return -1;
         }
 
+
+        // 封口
+        req_.req_domain[req_.domain_len] = '\0';
+        req_.rdata[req_.rdata_len] = '\0';
+        
         // 添加到缓存
         printf("======+++++++++dns data++++++++======\n");
         printf("req_ domain_name %s\n",req_.req_domain);
-        printf("req_ rdata %s\n",req_.rdata);
+        
+        // 逐字节打印
+        for(int i = 0;i < req_.domain_len;i++){
+            printf("%02x ",req_.req_domain[i]);
+        }
+        printf("\n");
+        
         printf("req_ rdata_len %d\n",req_.rdata_len);
         printf("req_ ttl %d\n",req_.ttl);
         printf("req_ type %d\n",req_.rtype);
         
-        // 封口
-        req_.req_domain[req_.domain_len] = '\0';
-        req_.rdata[req_.rdata_len] = '\0';
-        // 先插入到缓存中
         
+        
+        // 先插入到缓存中
         if(add_record(req_.req_domain,req_.rtype,req_.rdata,req_.rdata_len,req_.ttl) == DAO_FAILURE){
             LOG_ERROR("update_db : add_record failed!");
+        }else{
+            printf("update_db : add_record %s success!\n",req_.req_domain);
         }
     }
 

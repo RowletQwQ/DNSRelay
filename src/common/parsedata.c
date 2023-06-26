@@ -125,6 +125,7 @@ void parse_to_dnsres(struct task * task_) {
             printf("req is null!\n");
             return;
         }
+        
         assert(req->data_len == sizeof(struct req));
         struct req * req_ = (struct req *)req->data;
 
@@ -295,80 +296,74 @@ int parse_to_data(const char *answer,struct req * req_,const char * message){
     int16 * rdlength = (int16 *)(answer + len + 8);
     int16 rdl = ntohs(*rdlength);
     
+    
     // 解析rdata
     char * rdata = (char *)(answer + len + 10);
     req_->rdata = rdata;
-
-    // 根据rdata的类型解析
+    // 根据rdata的类型解析 
+    req_->rdata = (char *)malloc(sizeof(char) * 256);
     if(req_->rtype == 1){
         // A
-        req_->rdata_len = 16;
-        req_->rdata = (char *)malloc(sizeof(char) * 16);
-        if(inet_ntop(AF_INET,rdata,req_->rdata,16) == NULL){
-            printf("parse_to_req: inet_ntop failed!\n");
-            return -1;
-        }
+        // req_->rdata_len = 16;
+        // req_->rdata = (char *)malloc(sizeof(char) * 16);
+        // if(inet_ntop(AF_INET,rdata,req_->rdata,16) == NULL){
+        //     printf("parse_to_req: inet_ntop failed!\n");
+        //     return -1;
+        // }
+        req_->rdata_len = 4;
+        memcpy(req_->rdata,rdata,4);
     }else if(req_->rtype == 5){
         // CNAME
-        req_->rdata = (char *)malloc(sizeof(char) * 256);
         if(parse_to_string(rdata,req_->rdata,&req_->rdata_len,message) == -1){
             return -1;
         }
         req_->rdata_len = strlen(req_->rdata);
     }else if(req_->rtype == 15){
         // MX
-        req_->rdata = (char *)malloc(sizeof(char) * 256);
         if(parse_to_string(rdata,req_->rdata,&req_->rdata_len,message) == -1){
             return -1;
         }
         req_->rdata_len = strlen(req_->rdata);
     }else if(req_->rtype == 2){
         // NS
-        req_->rdata = (char *)malloc(sizeof(char) * 256);
         if(parse_to_string(rdata,req_->rdata,&req_->rdata_len,message) == -1){
             return -1;
         }
         req_->rdata_len = strlen(req_->rdata);
     }else if(req_->rtype == 6){
         // SOA
-        req_->rdata = (char *)malloc(sizeof(char) * 256);
         if(parse_to_string(rdata,req_->rdata,&req_->rdata_len,message) == -1){
             return -1;
         }
         req_->rdata_len = strlen(req_->rdata);
     }else if(req_->rtype == 12){
         // PTR
-        req_->rdata = (char *)malloc(sizeof(char) * 256);
         if(parse_to_string(rdata,req_->rdata,&req_->rdata_len,message) == -1){
             return -1;
         }
         req_->rdata_len = strlen(req_->rdata);
     }else if(req_->rtype == 16){
         // TXT
-        req_->rdata = (char *)malloc(sizeof(char) * 256);
         if(parse_to_string(rdata,req_->rdata,&req_->rdata_len,message) == -1){
             return -1;
         }
         req_->rdata_len = strlen(req_->rdata);
     }else if(req_->rtype == 28){
         // AAAA
-        req_->rdata_len = 256;
-        req_->rdata = (char *)malloc(sizeof(char) * 256);
-        if(inet_ntop(AF_INET6,rdata,req_->rdata,256) == NULL){
-            printf("parse_to_req: inet_ntop failed!\n");
-            return -1;
-        }
+        req_->rdata_len = 16;
+        memcpy(req_->rdata,rdata,16);
     }
-    
     // 返回这个answer的长度
     return len + 10 + rdl;
 }
 
 int parse_to_netstr(char * astr,char * nstr){
+    
     char * old_nstr = nstr;
     int len = 0;
     // 不等于零，并且大小不超过a_len
     while (*astr != '\0') {
+        
         // 获取域名中的下一个标签（以“.”分隔）
         char *next_label = strchr(astr, '.');
         
@@ -380,6 +375,7 @@ int parse_to_netstr(char * astr,char * nstr){
         int label_len = next_label - astr;
         *nstr++ = label_len;
         len++;
+
         // 将标签的字符添加到DNS报文中
         for (int i = 0; i < label_len; i++) {
             *nstr++ = *astr++;
@@ -390,6 +386,8 @@ int parse_to_netstr(char * astr,char * nstr){
         if (*next_label == '.') {
             astr++;
         }
+
+        // 长度不能超过255
         if(len > 255){
             printf("parse_to_netstr: len > 255!\n");
             return -1;
@@ -404,21 +402,25 @@ int parse_to_rdata(struct req* req_){
     
     switch(req_->rtype){
             case 1:
-                inet_pton(AF_INET, req_->rdata, req_->rdata);
-                req_->rdata_len = 4;
+                // IPV4
+                // inet_pton(AF_INET, req_->rdata, req_->rdata);
+                
+                // req_->rdata_len = 4;
                 break;
             case 28:
-                inet_pton(AF_INET6, req_->rdata, req_->rdata);
-                req_->rdata_len = 16;
+                // inet_pton(AF_INET6, req_->rdata, req_->rdata);
+                // req_->rdata_len = 16;
                 break;
             case 5:
                 char *netstr = (char *)malloc(sizeof(char) * 256);
                 int netstr_len = parse_to_netstr(req_->rdata,netstr);
+
                 if(netstr_len == -1){
                     printf("parse_to_rdata: parse_to_netstr failed!\n");
                     free(netstr);
                     return -1;
                 }
+
                 memcpy(req_->rdata,netstr,netstr_len);
                 // 释放内存
                 free(netstr);
