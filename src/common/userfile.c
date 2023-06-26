@@ -12,6 +12,7 @@
 #include "socket.h"
 #include "parsedata.h"
 #include "db.h"
+#include "linked_list.h"
 
 static FILE *fp = NULL;
 
@@ -30,7 +31,7 @@ void init_write_file(const char *file_name) {
     }
 }
 // 读取数据,数据格式同HOST文件
-int read_data(struct domin_table_data *buffer, int len){
+int read_data(struct domin_table_data **buffer){
     if (fp == NULL) {
         LOG_ERROR("userfile:file not open");
         return -1;
@@ -42,30 +43,41 @@ int read_data(struct domin_table_data *buffer, int len){
     // 读取数据
     char domain[1024] = {0}, ip[1024] = {0};
     int n = 0;
+    struct domin_table_data *buf = (struct domin_table_data *)malloc(sizeof(struct domin_table_data));
+    memset(buf, 0, sizeof(struct domin_table_data));
+    // 使用双向链表存储数据
+    list_ops_unit_t list = linked_list_create();
     while(fscanf(fp, "%s %s", ip, domain) != EOF) {
         //IP地址可能是IPV4或者IPV6,需要判断
         LOG_DEBUG("userfile:ip:%s,domin:%s", ip, domain);
         struct in_addr addr;
         struct in6_addr addr6;
         if (inet_pton(AF_INET, ip, &addr) == 1) {
-            buffer[n].record_type = A;
-            memcpy(&buffer[n].record, &addr, sizeof(struct in_addr));
+            buf->record_type = A;
+            memcpy(buf->record, &addr, sizeof(struct in_addr));
         } else if (inet_pton(AF_INET6, ip, &addr6) == 1) {
-            buffer[n].record_type = AAAA;
-            memcpy(&buffer[n].record, &addr6, sizeof(struct in6_addr));
+            buf->record_type = AAAA;
+            memcpy(buf->record, &addr6, sizeof(struct in6_addr));
         } else {
             //如果既不是IPV4也不是IPV6,则为CNAME
-            buffer[n].record_type = CNAME;
-            strcpy((char*)buffer[n].record, ip);
+            buf->record_type = CNAME;
+            strcpy((char*)buf->record, ip);
         }
-        strcpy((char*)buffer[n].domin_name, domain);
+        strcpy((char*)buf->domin_name, domain);
         //将过期时间设置为-1,表示不过期
-        buffer[n].expire_time = -1;
+        buf->expire_time = -1;
         n++;
-        if (n >= len) {
-            break;
-        }
-        
+        // 将数据插入链表
+        linked_list_insert_tail(list, (char*)buf, sizeof(struct domin_table_data));
+        memset(buf, 0, sizeof(struct domin_table_data));
+    }
+    // 将链表转换为数组
+    *buffer = (struct domin_table_data *)malloc(sizeof(struct domin_table_data) * n);
+    memset(*buffer, 0, sizeof(struct domin_table_data) * n);
+    for(int i = 0; i < n; i++){
+        struct linked_list_node *node = linked_list_delete_head(list);
+        memcpy(&((*buffer)[i]), node->data, node->data_len);
+        linked_list_free_node(node);
     }
     return n;
 }
