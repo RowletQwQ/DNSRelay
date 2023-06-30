@@ -2,6 +2,12 @@
 
 A DNS Relay Server Implementation with C
 
+### Funtions
+- User Host File supported
+- Mutithreading with thread pool
+- LRU Cache combined with Trie Tree + SQLite
+- Mutiple Debug level log supported
+
 ### Project Structure
 
 
